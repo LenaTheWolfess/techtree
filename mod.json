@@ -1,8 +1,8 @@
 {
 	"name": "techtree",
-	"label": "TechTree",
+	"label": "TechTree-dev",
 	"version": "2.0.0",
 	"description": "adds technology tree",
-	"dependencies": ["0ad=0.0.26"],
+	"dependencies": ["0ad=0.0.27"],
 	"type": "info"
 }

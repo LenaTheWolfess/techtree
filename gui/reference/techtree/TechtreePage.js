@@ -30,6 +30,7 @@ class TechtreePage extends ReferencePage
 		this.civSelection.registerHandler(this.selectCiv.bind(this));
 
 		let civInfoButton = new CivInfoButton(this);
+		let structreeButton = new StructreeButton(this);
 		let closeButton = new CloseButton(this);
 		Engine.SetGlobalHotkey("techtree", "Press", this.closePage.bind(this));
 

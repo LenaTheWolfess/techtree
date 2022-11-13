@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object
+	name="civInfoButton"
+	type="button"
+	style="StoneButton"
+	size="100%-637 100%-44 100%-437 100%-16"
+	hotkey="civinfo"
+/>
