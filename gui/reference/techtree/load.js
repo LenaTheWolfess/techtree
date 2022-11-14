@@ -320,6 +320,26 @@ function loadEntityTemplate(templateName, civCode, modifiers)
 	return parsed;
 }
 
+function mergeRequirements(reqsA, reqsB)
+{
+	if (reqsA === false || reqsB === false)
+		return false;
+
+	let finalReqs = clone(reqsA);
+
+	for (let option of reqsB) {
+		for (let type in option) {
+			for (let opt in finalReqs)
+			{
+				if (!finalReqs[opt][type])
+					finalReqs[opt][type] = [];
+				finalReqs[opt][type] = finalReqs[opt][type].concat(option[type]);
+			}
+		}
+	}
+	return finalReqs;
+}
+
 /**
  * Load and parse technology from json template.
  *

@@ -74,7 +74,7 @@ class TechtreePage extends ReferencePage
 
 		this.CivEmblem.sprite = "stretched:" + this.civData[this.activeCiv].Emblem;
 		this.CivName.caption = this.civData[this.activeCiv].Name;
-		this.CivHistory.caption = this.civData[this.activeCiv].History;
+		this.CivHistory.caption = this.civData[this.activeCiv].History || "";
 
 		let templateLists = this.TemplateLister.getTemplateLists(this.activeCiv);
 		
@@ -273,7 +273,8 @@ class TechtreePage extends ReferencePage
 
 		Engine.GetGUIObjectByName("civEmblem").sprite = "stretched:" + this.g_CivData[this.g_SelectedCiv].Emblem;
 		Engine.GetGUIObjectByName("civName").caption = this.g_CivData[this.g_SelectedCiv].Name;
-		Engine.GetGUIObjectByName("civHistory").caption = this.g_CivData[this.g_SelectedCiv].History;Engine.GetGUIObjectByName("root_caption").caption = "";
+		Engine.GetGUIObjectByName("civHistory").caption = this.g_CivData[this.g_SelectedCiv].History || "";
+		Engine.GetGUIObjectByName("root_caption").caption = "";
 		Engine.GetGUIObjectByName("pair_caption").caption = "";
 		
 		let i = 0;
