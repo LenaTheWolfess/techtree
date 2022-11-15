@@ -1,5 +1,5 @@
 /**
- * This class represents the Structure Tree GUI page.
+ * This class represents the Technology Tree GUI page.
  *
  * Further methods are described within draw.js
  */
