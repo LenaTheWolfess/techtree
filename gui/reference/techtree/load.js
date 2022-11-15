@@ -31,7 +31,7 @@ var g_ResourceData = new Resources();
  * @param {string} templateName
  * @return {object} Object containing raw template data.
  */
-function loadTemplate(templateName, g_SelectedCiv)
+function loadTemplate(templateName, civCode)
 {
 	if (!(templateName in g_TemplateData))
 	{
@@ -43,9 +43,9 @@ function loadTemplate(templateName, g_SelectedCiv)
 			for (let auraID of data.Auras._string.split(/\s+/))
 				loadAuraData(auraID);
 
-		if (data.Identity.Civ != "gaia" && g_SelectedCiv != "gaia" && data.Identity.Civ != g_SelectedCiv)
+		if (data.Identity.Civ != "gaia" && civCode != "gaia" && data.Identity.Civ != civCode)
 			warn("The \"" + templateName + "\" template has a defined civ of \"" + data.Identity.Civ + "\". " +
-				"This does not match the currently selected civ \"" + g_SelectedCiv + "\".");
+				"This does not match the currently selected civ \"" + civCode + "\".");
 
 		g_TemplateData[templateName] = data;
 	}
@@ -101,125 +101,119 @@ function loadAuraData(templateName)
 }
 
 function loadProductionQueue(template, civCode)
-	{
-		const production = {
-			"techs": [],
-			"units": []
-		};
+{
+	const production = {
+		"techs": [],
+		"units": []
+	};
 
-		if (!template.Researcher && !template.Trainer)
-			return production;
-
-		if (template.Trainer?.Entities?._string)
-			for (let templateName of template.Trainer.Entities._string.split(" "))
-			{
-				templateName = templateName.replace(/\{(civ|native)\}/g, civCode);
-				if (Engine.TemplateExists(templateName))
-					production.units.push(templateName);
-			}
-
-		const appendTechnology = (technologyName) => {
-			const technology = loadTechnologyTemplate(technologyName, civCode);
-			if (DeriveTechnologyRequirements(technology, civCode))
-				production.techs.push(technologyName);
-		};
-
-		if (template.Researcher?.Technologies?._string)
-			for (let technologyName of template.Researcher.Technologies._string.split(" "))
-			{
-				if (technologyName.indexOf("{civ}") != -1)
-				{
-					const civTechName = technologyName.replace("{civ}", civCode);
-					technologyName = TechnologyTemplateExists(civTechName) ? civTechName : technologyName.replace("{civ}", "generic");
-				}
-
-				if (isPairTech(technologyName))
-				{
-					let technologyPair = loadTechnologyPairTemplate(technologyName, civCode);
-					if (technologyPair.reqs)
-						for (technologyName of technologyPair.techs)
-							appendTechnology(technologyName);
-				}
-				else
-					appendTechnology(technologyName);
-			}
-
+	if (!template.Researcher && !template.Trainer)
 		return production;
+
+	if (template.Trainer?.Entities?._string) {
+		for (let templateName of template.Trainer.Entities._string.split(" ")) {
+			templateName = templateName.replace(/\{(civ|native)\}/g, civCode);
+			if (Engine.TemplateExists(templateName))
+				production.units.push(templateName);
+		}
 	}
+
+	const appendTechnology = (technologyName) => {
+		const technology = loadTechnologyTemplate(technologyName, civCode);
+		if (DeriveTechnologyRequirements(technology, civCode))
+			production.techs.push(technologyName);
+	};
+
+	if (template.Researcher?.Technologies?._string) {
+		for (let technologyName of template.Researcher.Technologies._string.split(" ")) {
+			if (technologyName.indexOf("{civ}") != -1) {
+				const civTechName = technologyName.replace("{civ}", civCode);
+				technologyName = TechnologyTemplateExists(civTechName) ? civTechName : technologyName.replace("{civ}", "generic");
+			}
+
+			if (isPairTech(technologyName)) {
+				let technologyPair = loadTechnologyPairTemplate(technologyName, civCode);
+				if (technologyPair.reqs) {
+					for (technologyName of technologyPair.techs)
+						appendTechnology(technologyName);
+				}
+			}
+			else {
+				appendTechnology(technologyName);
+			}
+		}
+	}
+	return production;
+}
 function loadTechnologyTemplate(templateName)
-	{
+{
+	let data = Engine.ReadJSONFile(g_TechnologyPath + templateName + ".json");
+	translateObjectKeys(data, g_TechnologyTranslateKeys);
 
-			let data = Engine.ReadJSONFile(g_TechnologyPath + templateName + ".json");
-			translateObjectKeys(data, g_TechnologyTranslateKeys);
-
-			// Translate specificName as in GetTechnologyData() from gui/session/session.js
-			if (typeof (data.specificName) === 'object')
-				for (let civ in data.specificName)
-					data.specificName[civ] = translate(data.specificName[civ]);
-			else if (data.specificName)
-				warn("specificName should be an object of civ->name mappings in " + templateName + ".json");
-
-			return data;
-
+	// Translate specificName as in GetTechnologyData() from gui/session/session.js
+	if (typeof (data.specificName) === 'object') {
+		for (let civ in data.specificName) {
+			data.specificName[civ] = translate(data.specificName[civ]);
+		}
+	} else if (data.specificName) {
+		warn("specificName should be an object of civ->name mappings in " + templateName + ".json");
 	}
+	return data;
+}
 
-	/**
-	 * @param {string} templateName
-	 * @param {string} civCode
-	 * @return {Object} Contains a list and the requirements of the techs in the pair
-	 */
-function	loadTechnologyPairTemplate(templateName, civCode)
-	{
-		let template = loadTechnologyTemplate(templateName);
-		return {
-			"techs": [template.top, template.bottom],
-			"reqs": DeriveTechnologyRequirements(template, civCode)
-		};
-	}
+/**
+ * @param {string} templateName
+ * @param {string} civCode
+ * @return {Object} Contains a list and the requirements of the techs in the pair
+ */
+function loadTechnologyPairTemplate(templateName, civCode)
+{
+	let template = loadTechnologyTemplate(templateName);
+	return {
+		"techs": [template.top, template.bottom],
+		"reqs": DeriveTechnologyRequirements(template, civCode)
+	};
+}
 function isPairTech(technologyCode)
 {
 	return !!loadTechnologyTemplate(technologyCode).top;
 }
 
-function isPhaseTech(technologyCode)
-{
-	return basename(technologyCode).startsWith("phase");
-}
-
 function loadBuildQueue(template, civCode)
-	{
-		let buildQueue = [];
+{
+	let buildQueue = [];
 
-		if (!template.Builder || !template.Builder.Entities._string)
-			return buildQueue;
-
-		for (let build of template.Builder.Entities._string.split(" "))
-		{
-			build = build.replace(/\{(civ|native)\}/g, civCode);
-			if (Engine.TemplateExists(build))
-				buildQueue.push(build);
-		}
-
+	if (!template.Builder || !template.Builder.Entities._string)
 		return buildQueue;
-	};
-	function getActualUpgradeData(upgradesInfo, selectedCiv, aur)
+
+	for (let build of template.Builder.Entities._string.split(" "))
 	{
-		let newUpgrades = [];
-		for (let upgrade of upgradesInfo)
-		{
-			upgrade.entity = upgrade.entity.replace(/\{(civ|native)\}/g, selectedCiv);
-
-			let data = GetTemplateDataHelper(loadTemplate(upgrade.entity, selectedCiv), null, g_AuraData, g_ResourceData);
-			data.name.internal = upgrade.entity;
-			data.cost = upgrade.cost;
-			data.icon = upgrade.icon || data.icon;
-			data.tooltip = upgrade.tooltip || data.tooltip;
-			data.requiredTechnology = upgrade.requiredTechnology || data.requiredTechnology;
-
-			newUpgrades.push(data);
-		}
-		return newUpgrades;
+		build = build.replace(/\{(civ|native)\}/g, civCode);
+		if (Engine.TemplateExists(build))
+			buildQueue.push(build);
 	}
+
+	return buildQueue;
+};
+	
+function getActualUpgradeData(upgradesInfo, selectedCiv)
+{
+	let newUpgrades = [];
+	for (let upgrade of upgradesInfo)
+	{
+		upgrade.entity = upgrade.entity.replace(/\{(civ|native)\}/g, selectedCiv);
+
+		let data = GetTemplateDataHelper(loadTemplate(upgrade.entity, selectedCiv), null, g_AuraData, g_ResourceData);
+		data.name.internal = upgrade.entity;
+		data.cost = upgrade.cost;
+		data.icon = upgrade.icon || data.icon;
+		data.tooltip = upgrade.tooltip || data.tooltip;
+		data.requiredTechnology = upgrade.requiredTechnology || data.requiredTechnology;
+
+		newUpgrades.push(data);
+	}
+	return newUpgrades;
+}
 /**
  * Load and parse a structure, unit, resource, etc from its entity template file.
  *
@@ -346,19 +340,19 @@ function mergeRequirements(reqsA, reqsB)
  * @param {string} templateName
  * @return {object} Sanitized data about the requested technology.
  */
-function loadTechnology(techName, g_SelectedCiv)
+function loadTechnology(techName, civCode)
 {
-	if (g_SelectedCiv == undefined)
+	if (civCode == undefined)
 		error("loadTechnology("+techName + ", undefined)")
 	let template = loadTechData(techName);
-	let tech = GetTechnologyDataHelper(template, g_SelectedCiv, g_ResourceData);
+	let tech = GetTechnologyDataHelper(template, civCode, g_ResourceData);
 	tech.name.internal = techName;
 	tech.supersedes = template.supersedes;
 
 	if (template.pair !== undefined)
 	{
 		tech.pair = template.pair;
-		let pairInfo = loadTechnologyPair(template.pair, g_SelectedCiv);
+		let pairInfo = loadTechnologyPair(template.pair, civCode);
 		tech.paired = pairInfo.techs[0];
 		if (techName == pairInfo.techs[0])
 			tech.paired = pairInfo.techs[1];
@@ -395,9 +389,9 @@ function findAllAutoResearchedTechs()
  * @param {string} phaseCode
  * @return {object} Sanitized object containing phase data
  */
-function loadPhase(phaseCode, g_SelectedCiv)
+function loadPhase(phaseCode, civCode)
 {
-	let phase = loadTechnology(phaseCode, g_SelectedCiv);
+	let phase = loadTechnology(phaseCode, civCode);
 
 	phase.actualPhase = phaseCode;
 	if (phase.replaces !== undefined)
@@ -410,13 +404,13 @@ function loadPhase(phaseCode, g_SelectedCiv)
  * @param {string} pairCode
  * @return {object} Contains a list and the requirements of the techs in the pair
  */
-function loadTechnologyPair(pairCode, g_SelectedCiv)
+function loadTechnologyPair(pairCode, civCode)
 {
 	var pairInfo = loadTechData(pairCode);
 
 	return {
 		"techs": [ pairInfo.top, pairInfo.bottom ],
-		"reqs": DeriveTechnologyRequirements(pairInfo, g_SelectedCiv)
+		"reqs": DeriveTechnologyRequirements(pairInfo, civCode)
 	};
 }
 

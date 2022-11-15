@@ -38,13 +38,13 @@ class TechtreePage extends ReferencePage
 		this.width = 0;
 		
 		/****OLD DATA***/
-		this.g_ParsedData = {
+		this.parsedData = {
 			"units": {},
 			"structures": {},
 			"techs": {},
 			"phases": {}
 		};
-		this.g_StructreeTooltipFunctions = [
+		this.structreeTooltipFunctions = [
 			getEntityNamesFormatted,
 			getEntityCostTooltip,
 			getEntityTooltip,
@@ -53,14 +53,14 @@ class TechtreePage extends ReferencePage
 		/**
 		 * Array of structure template names when given a civ and a phase name.
 		 */
-		this.g_TechList = {};
-		this.g_StartingTechs = {};
-		this.g_SelectedTech = "phase_village";
-		this.g_SelectedBuilding = "structures";
-		this.g_SelectedCiv;
-		this.g_CivData = loadCivData(true, false);
-		this.g_AutoResearchTechList = findAllAutoResearchedTechs();
-		this.g_CurrentModifiers = {};
+		this.techList = {};
+		this.startingTechs = {};
+		this.selectedTech = "phase_village";
+		this.selectedBuilding = "structures";
+		this.selectedCiv;
+		this.civData = loadCivData(true, false);
+		this.autoResearchTechList = findAllAutoResearchedTechs();
+		this.currentModifiers = {};
 	}
 
 	closePage()
@@ -110,17 +110,17 @@ class TechtreePage extends ReferencePage
 	
 	selectTech(techCode)
 	{
-		if (this.g_TechList[this.g_SelectedCiv] && this.g_TechList[this.g_SelectedCiv][techCode]) {
-			this.g_SelectedTech = techCode;
+		if (this.techList[this.selectedCiv] && this.techList[this.selectedCiv][techCode]) {
+			this.selectedTech = techCode;
 		}
 	}
 
 	selectStruct(structCode)
 	{
-		this.g_SelectedBuilding = structCode;
-		this.g_SelectedTech = "";
-		if (this.g_StartingTechs[this.g_SelectedCiv] && this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding]) {
-			this.selectTech(this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding][0]);
+		this.selectedBuilding = structCode;
+		this.selectedTech = "";
+		if (this.startingTechs[this.selectedCiv] && this.startingTechs[this.selectedCiv][this.selectedBuilding]) {
+			this.selectTech(this.startingTechs[this.selectedCiv][this.selectedBuilding][0]);
 		}
 	}
 
@@ -129,77 +129,64 @@ class TechtreePage extends ReferencePage
 	 */
 	selectCivOld(civCode)
 	{
-		if (civCode === this.g_SelectedCiv || !this.g_CivData[civCode])
+		if (civCode === this.selectedCiv || !this.civData[civCode])
 			return;
 
-		this.g_SelectedCiv = civCode;
+		this.selectedCiv = civCode;
+		if (this.selectedCiv != this.activeCiv) {
+			error(this.selectedCiv + " != " + this.activeCiv);
+		}
 
-		this.g_CurrentModifiers = this.deriveModifications(this.g_AutoResearchTechList, this.g_SelectedCiv);
+		this.currentModifiers = this.deriveModifications(this.autoResearchTechList, civCode);
 
 		// If a buildList already exists, then this civ has already been parsed
-		if (this.g_TechList[this.g_SelectedCiv])
+		if (this.techList[civCode])
 		{
-			this.draw();
+			this.draw(civCode);
 			return;
 		}
-
-		let templateLists = this.TemplateLister.getTemplateLists(this.activeCiv);
-
-		for (let u of templateLists.units.keys())
-			if (!this.g_ParsedData.units[u])
-				this.g_ParsedData.units[u] = loadEntityTemplate(u, this.activeCiv, this.g_CurrentModifiers);
-
 		
-		for (let s of templateLists.structures.keys()) {
-			if (!this.g_ParsedData.structures[s])
-				this.g_ParsedData.structures[s] = loadEntityTemplate(s, this.activeCiv, this.g_CurrentModifiers);
-		}
+		let templateLists = this.TemplateLister.getTemplateLists(civCode);
 
-		// Load technologies
-		this.g_ParsedData.techs[civCode] = {};
-		for (let techcode of templateLists.techs.keys())
-			if (basename(techcode).startsWith("phase"))
-				this.g_ParsedData.phases[techcode] = loadPhase(techcode, this.activeCiv);
-			else
-				this.g_ParsedData.techs[civCode][techcode] = loadTechnology(techcode, this.activeCiv);
-
+		this.parsedData.units = this.loadEntityData(templateLists.units.keys(), this.parsedData.units, civCode, this.currentModifiers);
+		this.parsedData.structures = this.loadEntityData(templateLists.structures.keys(), this.parsedData.structures, civCode, this.currentModifiers);
+		this.parsedData = this.loadTechnologies(templateLists.techs.keys(), this.parsedData, civCode);
+				
 		// Establish phase order
-		this.g_ParsedData.phaseList = UnravelPhases(this.g_ParsedData.phases);
+		this.parsedData.phaseList = UnravelPhases(this.parsedData.phases);
 
 		// Load any required generic phases that aren't already loaded
-		for (let phasecode of this.g_ParsedData.phaseList)
-			if (!this.g_ParsedData.phases[phasecode])
-				this.g_ParsedData.phases[phasecode] = loadPhase(phasecode, this.activeCiv);
-
+		this.parsedData.phases = this.loadPhases(this.parsedData.phaseList, this.parsedData.phases, civCode);
+		
 		let techList = {};
 		let startList = {};
 		// Get all technologies for selected civ
 		for (let structCode of templateLists.structures.keys())
 		{
-			let structInfo = this.g_ParsedData.structures[structCode];
+			let structInfo = this.parsedData.structures[structCode];
 			// Add technologies
 			for (let prod of structInfo.production.techs)
 			{
-				if (basename(prod).startsWith("phase"))
+				if (this.isPhaseTech(prod))// basename(prod).startsWith("phase"))
 					continue;
 				let same = false;
 				if (!(prod in techList)) {
-					techList[prod] = {"require": [], "unlocks": [], "buildings": [], "units": [], "phase": this.getPhaseOfTemplate(structInfo)};
+					techList[prod] = {"require": [], "unlocks": [], "buildings": [], "units": [], "phase": this.getPhaseOfTemplate(structInfo, civCode)};
 				}
-				let reqs = this.GetTechSupersedes(prod);
+				let reqs = this.getTechSupersedes(prod, civCode);
 				if (reqs === false)
 					continue;
-				let pName = this.getPhaseOfTemplate(structInfo);
-				let ptName = this.getPhaseOfTechnology(prod);
-				let pId =  this.g_ParsedData.phaseList.indexOf(pName);
+				let pName = this.getPhaseOfTemplate(structInfo, civCode);
+				let ptName = this.getPhaseOfTechnology(prod, civCode);
+				let pId =  this.parsedData.phaseList.indexOf(pName);
 				// loop through all buildings and return minimum phase
 				for (let b of techList[prod].buildings) {
-					let bs = this.g_ParsedData.structures[b];
-					pId = Math.min(pId, this.g_ParsedData.phaseList.indexOf(this.getPhaseOfTemplate(bs)));
+					let bs = this.parsedData.structures[b];
+					pId = Math.min(pId, this.parsedData.phaseList.indexOf(this.getPhaseOfTemplate(bs, civCode)));
 				}
-				pId = Math.max(pId, this.g_ParsedData.phaseList.indexOf(ptName));
-				techList[prod].phase = this.g_ParsedData.phaseList[pId];
-			//	warn(prod + " " + "(" + pId + ") "  + techList[prod].phase + " phase of template " + this.g_ParsedData.phaseList.indexOf(pName) );
+				pId = Math.max(pId, this.parsedData.phaseList.indexOf(ptName));
+				techList[prod].phase = this.parsedData.phaseList[pId];
+			//	warn(prod + " " + "(" + pId + ") "  + techList[prod].phase + " phase of template " + this.parsedData.phaseList.indexOf(pName) );
 				for (let req in reqs) {
 					if (basename(reqs[req]).startsWith("phase"))
 						continue;
@@ -223,14 +210,14 @@ class TechtreePage extends ReferencePage
 					}
 					if (startList[structCode].indexOf(prod) == -1)
 						startList[structCode].push(prod);
-					this.g_SelectedBuilding = structCode;
-					this.g_SelectedTech = prod;
+					this.selectedBuilding = structCode;
+					this.selectedTech = prod;
 				}
 			}
 			// Add units to technologies
 			for (let prod of structInfo.production.units)
 			{
-				let template = this.g_ParsedData.units[prod];
+				let template = this.parsedData.units[prod];
 				if (!template)
 					continue;
 				let tech = template.requiredTechnology;
@@ -244,13 +231,43 @@ class TechtreePage extends ReferencePage
 			}
 		}	
 		
-		this.g_TechList[this.g_SelectedCiv] = techList;
-		this.g_StartingTechs[this.g_SelectedCiv] = startList;
+		this.techList[civCode] = techList;
+		this.startingTechs[civCode] = startList;
 		this.selectStruct(Object.keys(startList)[0]);
-		this.draw();
+		this.draw(civCode);
 	}
 
 	/**** OLD DRAW CODE ****/
+	loadEntityData(keys, entities, civCode, modifiers)
+	{
+		for (let k of keys) {
+			if (!entities[k]) {
+				entities[k] = loadEntityTemplate(k, civCode, modifiers);
+			}
+		}
+		return entities;
+	}
+	loadTechnologies(keys, data, civCode) {
+		data.techs[civCode] = {};
+		for (let techcode of keys) {
+			if (basename(techcode).startsWith("phase"))
+				data.phases[techcode] = loadPhase(techcode, civCode);
+			else
+				data.techs[civCode][techcode] = loadTechnology(techcode, civCode);
+		}
+		return data;
+	}
+	loadPhases(keys, phases, civCode) {
+		for (let phasecode of keys) {
+			if (!phases[phasecode])
+				phases[phasecode] = loadPhase(phasecode, civCode);
+		}
+		return phases;
+	}
+	isPhaseTech(technologyCode)
+	{
+		return basename(technologyCode).startsWith("phase");
+	}
 	/**
 	 * Functions used to collate the contents of a tooltip.
 	 */
@@ -261,109 +278,106 @@ class TechtreePage extends ReferencePage
 	 *
 	 * (Actually resizes and changes visibility of elements, and populates text)
 	 */
-	draw()
+	draw(civCode)
 	{
 		// Set basic state (positioning of elements mainly), but only once
 		//if (!Object.keys(this.g_DrawLimits).length)
-			this.predraw();
+			this.predraw(civCode);
 
 		let leftMargin = Engine.GetGUIObjectByName("tree_display").size.left;
 
-		let phaseList = this.g_ParsedData.phaseList;
+		let phaseList = this.parsedData.phaseList;
 
-		Engine.GetGUIObjectByName("civEmblem").sprite = "stretched:" + this.g_CivData[this.g_SelectedCiv].Emblem;
-		Engine.GetGUIObjectByName("civName").caption = this.g_CivData[this.g_SelectedCiv].Name;
-		Engine.GetGUIObjectByName("civHistory").caption = this.g_CivData[this.g_SelectedCiv].History || "";
 		Engine.GetGUIObjectByName("root_caption").caption = "";
 		Engine.GetGUIObjectByName("pair_caption").caption = "";
 		
 		let i = 0;
-		for (let sc in this.g_StartingTechs[this.g_SelectedCiv])
+		for (let sc in this.startingTechs[civCode])
 		{
 			let structCode = sc;
 			let thisEle = Engine.GetGUIObjectByName("struct["+i+"]_icon");
 			if (thisEle === undefined)
 			{
-				error("\""+this.g_SelectedCiv+"\" has more starting buildings than can be supported by the current GUI layout");
+				error("\""+civCode+"\" has more starting buildings than can be supported by the current GUI layout");
 				break;
 			}
-			let struct = this.g_ParsedData.structures[structCode];
+			let struct = this.parsedData.structures[structCode];
 			if (!struct) {
 				warn("structure " + structCode + " is not in parsed data");
 				continue;
 			}
-			let grayscale = this.g_SelectedBuilding == sc ? "" : "grayscale:";
+			let grayscale = this.selectedBuilding == sc ? "" : "grayscale:";
 			thisEle.sprite = "stretched:"+grayscale+"session/portraits/"+struct.icon;
 			thisEle.tooltip =  '[font="sans-bold-16"]' + struct.name.generic + '[/font]\n(' + struct.name.specific+")";
 			let that = this;
 			thisEle.onPress = function() {
 				that.selectStruct(structCode);
-				that.draw();
+				that.draw(civCode);
 			}
 			++i;
 		}
 		i = 0;
-		if (this.g_StartingTechs[this.g_SelectedCiv] && this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding])
+		if (this.startingTechs[civCode] && this.startingTechs[civCode][this.selectedBuilding])
 		{
-			for (let techCode of this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding])
+			for (let techCode of this.startingTechs[civCode][this.selectedBuilding])
 			{
 				let thisEle = Engine.GetGUIObjectByName("tech["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more starting techs than can be supported by the current GUI layout");
+					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
 					break;
 				}
-				let tech = this.g_ParsedData.techs[this.g_SelectedCiv][techCode];
+				let tech = this.parsedData.techs[civCode][techCode];
 				if (techCode.startsWith("phase")) {
-					tech = this.g_ParsedData.phases[techCode];
+					tech = this.parsedData.phases[techCode];
 				}
 				let startTechIcon = Engine.GetGUIObjectByName("tech["+i+"]_icon");
 				
-				let grayscale = this.g_SelectedTech == techCode ? "" : "grayscale:";
+				let grayscale = this.selectedTech == techCode ? "" : "grayscale:";
 				startTechIcon.sprite = "stretched:"+grayscale+"session/portraits/"+tech.icon;
 				startTechIcon.tooltip = '[font="sans-bold-16"]' + tech.name.generic+ '[/font]\n'+ tech.description;
 				let that = this;
 				startTechIcon.onPress = function() {
 					that.selectTech(tech.name.internal);
-					that.draw();
+					that.draw(civCode);
 				}
 				++i;
 		}
 		}
 		// Draw requirements
 		i = 0;
-		if (this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech]) {
-			for (let struct of this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech].buildings)
+		if (this.techList[civCode][this.selectedTech]) {
+			for (let struct of this.techList[civCode][this.selectedTech].buildings)
 			{
 				let thisEle = Engine.GetGUIObjectByName("req_struct");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more techs in phase " +
+					error("\""+civCode+"\" has more techs in phase " +
 						  pha + " than can be supported by the current GUI layout");
 					break;
 				}
-				let child = this.g_ParsedData.structures[struct];
+				let child = this.parsedData.structures[struct];
 				
 				thisEle.sprite =	"stretched:session/portraits/"+child.icon;
 				thisEle.tooltip = '[font="sans-bold-16"]' + child.name.generic + '[/font]\n(' + child.name.specific+")";
 				let that = this;
 				thisEle.onPress = function() {
 					that.selectStruct(struct);
-					that.draw();
+					that.draw(civCode);
 				}
 				thisEle.hidden = false;
 				break;
 			}
-			for (let tech of this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech].require)
+			for (let tech of this.techList[civCode][this.selectedTech].require)
 			{
 				let thisEle = Engine.GetGUIObjectByName("req["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more techs in phase " +
+					error("\""+civCode+"\" has more techs in phase " +
 						  pha + " than can be supported by the current GUI layout");
 					break;
 				}
-				let child = this.g_ParsedData.techs[this.g_SelectedCiv][tech];
+				let child = this.parsedData.techs[civCode][tech];
 				if (!child) {
 					warn("Technology not parsed for " + tech);
 					continue;
@@ -373,7 +387,7 @@ class TechtreePage extends ReferencePage
 				let that = this;
 				thisEle.onPress = function() {
 					that.selectTech(child.name.internal);
-					that.draw();
+					that.draw(civCode);
 				}
 				thisEle.hidden = false;
 
@@ -383,13 +397,13 @@ class TechtreePage extends ReferencePage
 		
 		let rootIcon = Engine.GetGUIObjectByName("root");
 		let pairIcon = Engine.GetGUIObjectByName("pair");
-		let rootTech = this.g_ParsedData.techs[this.g_SelectedCiv][this.g_SelectedTech];
+		let rootTech = this.parsedData.techs[civCode][this.selectedTech];
 
 		if (rootTech) {
 			let pairedTech;
 			let pair = rootTech.paired;
 			if (pair)
-				pairedTech = this.g_ParsedData.techs[this.g_SelectedCiv][pair];
+				pairedTech = this.parsedData.techs[civCode][pair];
 			pairIcon.hidden = true;
 			if (pairedTech) {
 				pairIcon.sprite = "stretched:session/portraits/"+pairedTech.icon;
@@ -398,7 +412,7 @@ class TechtreePage extends ReferencePage
 				let that = this;
 				pairIcon.onPress = function() {
 					that.selectTech(pairedTech.name.internal);
-					that.draw();
+					that.draw(civCode);
 				}
 				pairIcon.hidden = false;
 			}
@@ -412,43 +426,43 @@ class TechtreePage extends ReferencePage
 		}
 		
 		// Draw unlocks
-		if (this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech]) {
+		if (this.techList[civCode][this.selectedTech]) {
 			i = 0;	
-			Engine.GetGUIObjectByName("unlock_caption").hidden = !this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech].unlocks.length;
-			for (let tech of this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech].unlocks)
+			Engine.GetGUIObjectByName("unlock_caption").hidden = !this.techList[civCode][this.selectedTech].unlocks.length;
+			for (let tech of this.techList[civCode][this.selectedTech].unlocks)
 			{
 				let thisEle = Engine.GetGUIObjectByName("unlock["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more techs in phase " +
+					error("\""+civCode+"\" has more techs in phase " +
 						  pha + " than can be supported by the current GUI layout");
 					break;
 				}
-				let child = this.g_ParsedData.techs[this.g_SelectedCiv][tech];
+				let child = this.parsedData.techs[civCode][tech];
 				
 				thisEle.sprite =	"stretched:session/portraits/"+child.icon;
 				thisEle.tooltip = '[font="sans-bold-16"]' +  child.name.generic + '[/font]\n' + child.description;
 				let that = this;
 				thisEle.onPress = function() {
 					that.selectTech(child.name.internal);
-					that.draw();
+					that.draw(civCode);
 				}
 				thisEle.hidden = false;
 
 				++i;
 			}
 			i = 0;
-			Engine.GetGUIObjectByName("unlock_unit_caption").hidden = !this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech].units.length;
-			for (let unit of this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech].units)
+			Engine.GetGUIObjectByName("unlock_unit_caption").hidden = !this.techList[civCode][this.selectedTech].units.length;
+			for (let unit of this.techList[civCode][this.selectedTech].units)
 			{
 				let thisEle = Engine.GetGUIObjectByName("unlock_unit["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more techs in phase " +
+					error("\""+civCode+"\" has more techs in phase " +
 						  pha + " than can be supported by the current GUI layout");
 					break;
 				}
-				let child = this.g_ParsedData.units[unit];
+				let child = this.parsedData.units[unit];
 				
 				thisEle.sprite =	"stretched:session/portraits/"+child.icon;
 				thisEle.tooltip = '[font="sans-bold-16"]' +  child.name.generic + '[/font]\n(' + child.name.specific+")";
@@ -462,12 +476,6 @@ class TechtreePage extends ReferencePage
 		Engine.GetGUIObjectByName("display_tree").size = size;
 	}
 
-	compileTooltip(template)
-	{
-		return buildText(template, this.g_StructreeTooltipFunctions) + "\n" + showTemplateViewerOnClickTooltip();
-	}
-
-
 	/**
 	 * Positions certain elements that only need to be positioned once
 	 * (as <repeat> does not position automatically).
@@ -475,9 +483,9 @@ class TechtreePage extends ReferencePage
 	 * Also detects limits on what the GUI can display by iterating through the set
 	 * elements of the GUI. These limits are then used by draw().
 	 */
-	predraw()
+	predraw(civCode)
 	{
-		let phaseList = this.g_ParsedData.phaseList;
+		let phaseList = this.parsedData.phaseList;
 		let scale = 40;
 		let initIconSize = {"left": 0, "right": scale, "top": 0, "bottom": scale};
 
@@ -491,8 +499,8 @@ class TechtreePage extends ReferencePage
 		let root;
 		let size;
 		
-		let selectedTech = this.g_TechList[this.g_SelectedCiv][this.g_SelectedTech];
-		let selectedTemplate = this.g_ParsedData.techs[this.g_SelectedCiv][this.g_SelectedTech];
+		let selectedTech = this.techList[civCode][this.selectedTech];
+		let selectedTemplate = this.parsedData.techs[civCode][this.selectedTech];
 		
 		let pSelectedTech;
 		let pSelectedTemplate;
@@ -503,22 +511,22 @@ class TechtreePage extends ReferencePage
 		
 		if (selectedTemplate) {
 			if (selectedTemplate.paired) {
-				pSelectedTech = this.g_TechList[this.g_SelectedCiv][selectedTemplate.paired];
-				pSelectedTemplate = this.g_ParsedData.techs[this.g_SelectedCiv][selectedTemplate.paired];
+				pSelectedTech = this.techList[civCode][selectedTemplate.paired];
+				pSelectedTemplate = this.parsedData.techs[civCode][selectedTemplate.paired];
 			}
 		}
 		
 		// Draw buildings
 		shift = 0;
-		for (let sc in this.g_StartingTechs[this.g_SelectedCiv])
+		for (let sc in this.startingTechs[civCode])
 			shift++;
 		shift = shift/2;
-		for (let sc in this.g_StartingTechs[this.g_SelectedCiv])
+		for (let sc in this.startingTechs[civCode])
 		{
 			let thisEle = Engine.GetGUIObjectByName("struct["+i+"]_icon");
 			if (thisEle === undefined)
 			{
-				error("\""+this.g_SelectedCiv+"\" has more starting buildings than can be supported by the current GUI layout");
+				error("\""+civCode+"\" has more starting buildings than can be supported by the current GUI layout");
 				break;
 			}
 			// Set start tech icon
@@ -538,14 +546,14 @@ class TechtreePage extends ReferencePage
 		row++;
 		i = 0;
 		// Draw starting technlogies
-		if (this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding]) {
-			shift = this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding].length/2;
-			for (let tech of this.g_StartingTechs[this.g_SelectedCiv][this.g_SelectedBuilding])
+		if (this.startingTechs[civCode][this.selectedBuilding]) {
+			shift = this.startingTechs[civCode][this.selectedBuilding].length/2;
+			for (let tech of this.startingTechs[civCode][this.selectedBuilding])
 			{
 				let thisEle = Engine.GetGUIObjectByName("tech["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more starting techs than can be supported by the current GUI layout");
+					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
 					break;
 				}
 				// Align the phase row
@@ -600,10 +608,10 @@ class TechtreePage extends ReferencePage
 		if (selectedTech && selectedTech.phase) {
 			root.hidden = false;
 			root = Engine.GetGUIObjectByName("sPhaseGenericName");
-			root.caption = this.g_ParsedData.phases[selectedTech.phase].name.generic;
+			root.caption = this.parsedData.phases[selectedTech.phase].name.generic;
 			root.hidden = false;
 			root = Engine.GetGUIObjectByName("sPhaseIcon");
-			root.sprite = "stretched:session/portraits/"+this.g_ParsedData.phases[selectedTech.phase].icon;
+			root.sprite = "stretched:session/portraits/"+this.parsedData.phases[selectedTech.phase].icon;
 			root.hidden = false;
 		} else {
 			root.hidden = true;
@@ -649,10 +657,10 @@ class TechtreePage extends ReferencePage
 			if (pSelectedTech && pSelectedTech.phase) {
 				root.hidden = false;
 				root = Engine.GetGUIObjectByName("pPhaseGenericName");
-				root.caption = this.g_ParsedData.phases[pSelectedTech.phase].name.generic;
+				root.caption = this.parsedData.phases[pSelectedTech.phase].name.generic;
 				root.hidden = false;
 				root = Engine.GetGUIObjectByName("pPhaseIcon");
-				root.sprite = "stretched:session/portraits/"+this.g_ParsedData.phases[pSelectedTech.phase].icon;
+				root.sprite = "stretched:session/portraits/"+this.parsedData.phases[pSelectedTech.phase].icon;
 				root.hidden = false;
 			} else {
 				root.hidden = true;
@@ -709,7 +717,7 @@ class TechtreePage extends ReferencePage
 				let thisEle = Engine.GetGUIObjectByName("req["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more starting techs than can be supported by the current GUI layout");
+					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
 					break;
 				}
 				// Set start tech icon
@@ -784,7 +792,7 @@ class TechtreePage extends ReferencePage
 				let thisEle = Engine.GetGUIObjectByName("unlock["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more starting techs than can be supported by the current GUI layout");
+					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
 					break;
 				}
 				// Set start tech icon
@@ -816,7 +824,7 @@ class TechtreePage extends ReferencePage
 				let thisEle = Engine.GetGUIObjectByName("unlock_unit["+i+"]_icon");
 				if (thisEle === undefined)
 				{
-					error("\""+this.g_SelectedCiv+"\" has more starting techs than can be supported by the current GUI layout");
+					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
 					break;
 				}
 				// Set start tech icon
@@ -836,39 +844,13 @@ class TechtreePage extends ReferencePage
 	//	hideRemaining("phase_rows", i);
 	}
 
-	deriveModifications(techList)
+	deriveModifications(techList, civCode)
 	{
 		let techData = [];
 		for (let techName of techList)
-			techData.push(GetTechnologyBasicDataHelper(loadTechData(techName), this.g_SelectedCiv));
+			techData.push(GetTechnologyBasicDataHelper(loadTechData(techName), civCode));
 
 		return DeriveModificationsFromTechnologies(techData);
-	}
-
-	/**
-	 * Provided with an array containing basic information about possible
-	 * upgrades, such as that generated by globalscript's GetTemplateDataHelper,
-	 * this function loads the actual template data of the upgrades, overwrites
-	 * certain values within, then passes an array containing the template data
-	 * back to caller.
-	 */
-	getActualUpgradeData(upgradesInfo)
-	{
-		let newUpgrades = [];
-		for (let upgrade of upgradesInfo)
-		{
-			upgrade.entity = upgrade.entity.replace(/\{(civ|native)\}/g, this.g_SelectedCiv);
-
-			let data = GetTemplateDataHelper(loadTemplate(upgrade.entity, this.activeCiv), null, this.g_AuraData, this.g_ResourceData);
-			data.name.internal = upgrade.entity;
-			data.cost = upgrade.cost;
-			data.icon = upgrade.icon || data.icon;
-			data.tooltip = upgrade.tooltip || data.tooltip;
-			data.requiredTechnology = upgrade.requiredTechnology || data.requiredTechnology;
-
-			newUpgrades.push(data);
-		}
-		return newUpgrades;
 	}
 
 	/**
@@ -880,29 +862,29 @@ class TechtreePage extends ReferencePage
 	 * @return The name of the phase the technology belongs to, or false if
 	 *         the current civ can't research this tech
 	 */
-	getPhaseOfTechnology(techName)
+	getPhaseOfTechnology(techName, civCode)
 	{
 		let phaseIdx = -1;
 
 		if (basename(techName).startsWith("phase"))
 		{
-			if (!this.g_ParsedData.phases[techName].reqs)
+			if (!this.parsedData.phases[techName].reqs)
 				return false;
 
-			phaseIdx = this.g_ParsedData.phaseList.indexOf(this.getActualPhase(techName));
+			phaseIdx = this.parsedData.phaseList.indexOf(this.getActualPhase(techName));
 			if (phaseIdx > 0)
-				return this.g_ParsedData.phaseList[phaseIdx - 1];
+				return this.parsedData.phaseList[phaseIdx - 1];
 		}
 
-		if (!this.g_ParsedData.techs[this.g_SelectedCiv][techName])
+		if (!this.parsedData.techs[civCode][techName])
 		{
-			let techData = loadTechnology(techName, this.activeCiv);
-			this.g_ParsedData.techs[this.g_SelectedCiv][techName] = techData;
+			let techData = loadTechnology(techName, civCode);
+			this.parsedData.techs[civCode][techName] = techData;
 			warn("The \"" + techName + "\" technology is not researchable in any structure buildable by the " +
-				this.g_SelectedCiv + " civilisation, but is required by something that this civ can research, train or build!");
+				civCode + " civilisation, but is required by something that this civ can research, train or build!");
 		}
 
-		let techReqs = this.g_ParsedData.techs[this.g_SelectedCiv][techName].reqs;
+		let techReqs = this.parsedData.techs[civCode][techName].reqs;
 		if (!techReqs)
 			return false;
 
@@ -914,33 +896,33 @@ class TechtreePage extends ReferencePage
 						return tech;
 					if (basename(tech).startsWith("pair"))
 						continue;
-					phaseIdx = Math.max(phaseIdx, this.g_ParsedData.phaseList.indexOf(this.getPhaseOfTechnology(tech)));
+					phaseIdx = Math.max(phaseIdx, this.parsedData.phaseList.indexOf(this.getPhaseOfTechnology(tech, civCode)));
 				}
 			}
 		}
-		return this.g_ParsedData.phaseList[phaseIdx] || false;
+		return this.parsedData.phaseList[phaseIdx] || false;
 	}
 
-	GetTechSupersedes(techName)
+	getTechSupersedes(techName, civCode)
 	{
 		if (basename(techName).startsWith("phase"))
 		{
-			if (!this.g_ParsedData.phases[techName].superseded)
+			if (!this.parsedData.phases[techName].superseded)
 				return false;
 
-			phaseIdx = this.g_ParsedData.phaseList.indexOf(this.getActualPhase(techName));
+			phaseIdx = this.parsedData.phaseList.indexOf(this.getActualPhase(techName));
 			if (phaseIdx > 0)
-				return this.g_ParsedData.phaseList[phaseIdx - 1];
+				return this.parsedData.phaseList[phaseIdx - 1];
 		}
-		if (!this.g_ParsedData.techs[this.g_SelectedCiv][techName])
+		if (!this.parsedData.techs[civCode][techName])
 		{
-			let techData = loadTechnology(techName, this.activeCiv);
-			this.g_ParsedData.techs[this.g_SelectedCiv][techName] = techData;
+			let techData = loadTechnology(techName, civCode);
+			this.parsedData.techs[civCode][techName] = techData;
 			warn("The \"" + techName + "\" technology is not researchable in any structure buildable by the " +
-				this.g_SelectedCiv + " civilisation, but is required by something that this civ can research, train or build!");
+				civCode + " civilisation, but is required by something that this civ can research, train or build!");
 		}	
-		let techReqs = this.g_ParsedData.techs[this.g_SelectedCiv][techName].reqs;
-		let supers = this.g_ParsedData.techs[this.g_SelectedCiv][techName].supersedes;
+		let techReqs = this.parsedData.techs[civCode][techName].reqs;
+		let supers = this.parsedData.techs[civCode][techName].supersedes;
 		// Cannot research
 		if (techReqs == false)
 			return false;
@@ -974,11 +956,11 @@ class TechtreePage extends ReferencePage
 	 */
 	getActualPhase(phaseName)
 	{
-		if (this.g_ParsedData.phases[phaseName])
-			return this.g_ParsedData.phases[phaseName].actualPhase;
+		if (this.parsedData.phases[phaseName])
+			return this.parsedData.phases[phaseName].actualPhase;
 
 		warn("Unrecognised phase (" + phaseName + ")");
-		return this.g_ParsedData.phaseList[0];
+		return this.parsedData.phaseList[0];
 	}
 
 	/**
@@ -987,53 +969,16 @@ class TechtreePage extends ReferencePage
 	 * @param {object} template
 	 * @return {string}
 	 */
-	getPhaseOfTemplate(template)
+	getPhaseOfTemplate(template, civCode)
 	{
 		if (!template.requiredTechnology)
-			return this.g_ParsedData.phaseList[0];
+			return this.parsedData.phaseList[0];
 
 		if (basename(template.requiredTechnology).startsWith("phase"))
 			return this.getActualPhase(template.requiredTechnology);
 
-		return this.getPhaseOfTechnology(template.requiredTechnology);
+		return this.getPhaseOfTechnology(template.requiredTechnology, civCode);
 	}
-
-	/**
-	 * This is needed because getEntityCostTooltip in tooltip.js needs to get
-	 * the template data of the different wallSet pieces. In the session this
-	 * function does some caching, but here we do that in loadTemplate already.
-	 */
-	GetTemplateData(templateName)
-	{
-		var template = loadTemplate(templateName, this.activeCiv);
-		return GetTemplateDataHelper(template, null, this.g_AuraData, this.g_ResourceData, this.g_CurrentModifiers);
-	}
-
-	isPairTech(technologyCode)
-	{
-		return !!loadTechData(technologyCode).top;
-	}
-
-	mergeRequirements(reqsA, reqsB)
-	{
-		if (reqsA === false || reqsB === false)
-			return false;
-
-		let finalReqs = clone(reqsA);
-
-		for (let option of reqsB) {
-			for (let type in option) {
-				for (let opt in finalReqs)
-				{
-					if (!finalReqs[opt][type])
-						finalReqs[opt][type] = [];
-					finalReqs[opt][type] = finalReqs[opt][type].concat(option[type]);
-				}
-			}
-		}
-		return finalReqs;
-	}
-
 }
 
 TechtreePage.prototype.CloseButtonTooltip =
