@@ -44,12 +44,6 @@ class TechtreePage extends ReferencePage
 			"techs": {},
 			"phases": {}
 		};
-		this.structreeTooltipFunctions = [
-			getEntityNamesFormatted,
-			getEntityCostTooltip,
-			getEntityTooltip,
-			getAurasTooltip
-		];
 		/**
 		 * Array of structure template names when given a civ and a phase name.
 		 */
@@ -58,9 +52,21 @@ class TechtreePage extends ReferencePage
 		this.selectedTech = "phase_village";
 		this.selectedBuilding = "structures";
 		this.selectedCiv;
-		this.civData = loadCivData(true, false);
-		this.autoResearchTechList = findAllAutoResearchedTechs();
+		//this.civData = loadCivData(true, false);
+		
 		this.currentModifiers = {};
+		
+		this.g_ResourceData = new Resources();
+		
+		this.g_TechnologyTranslateKeys = ["genericName", "tooltip", "description"];
+		this.g_AuraPath = "simulation/data/auras/";
+		this.g_TechnologyPath = "simulation/data/technologies/";
+		
+		this.g_AuraData = {};
+		this.g_TemplateData = {};
+		this.g_TechnologyData = {};
+		
+		this.autoResearchTechList = this.findAllAutoResearchedTechs();
 	}
 
 	closePage()
@@ -242,7 +248,7 @@ class TechtreePage extends ReferencePage
 	{
 		for (let k of keys) {
 			if (!entities[k]) {
-				entities[k] = loadEntityTemplate(k, civCode, modifiers);
+				entities[k] = this.loadEntityTemplate(k, civCode, modifiers);
 			}
 		}
 		return entities;
@@ -251,16 +257,16 @@ class TechtreePage extends ReferencePage
 		data.techs[civCode] = {};
 		for (let techcode of keys) {
 			if (basename(techcode).startsWith("phase"))
-				data.phases[techcode] = loadPhase(techcode, civCode);
+				data.phases[techcode] = this.loadPhase(techcode, civCode);
 			else
-				data.techs[civCode][techcode] = loadTechnology(techcode, civCode);
+				data.techs[civCode][techcode] = this.loadTechnology(techcode, civCode);
 		}
 		return data;
 	}
 	loadPhases(keys, phases, civCode) {
 		for (let phasecode of keys) {
 			if (!phases[phasecode])
-				phases[phasecode] = loadPhase(phasecode, civCode);
+				phases[phasecode] = this.loadPhase(phasecode, civCode);
 		}
 		return phases;
 	}
@@ -848,7 +854,7 @@ class TechtreePage extends ReferencePage
 	{
 		let techData = [];
 		for (let techName of techList)
-			techData.push(GetTechnologyBasicDataHelper(loadTechData(techName), civCode));
+			techData.push(GetTechnologyBasicDataHelper(this.loadTechData(techName), civCode));
 
 		return DeriveModificationsFromTechnologies(techData);
 	}
@@ -878,7 +884,7 @@ class TechtreePage extends ReferencePage
 
 		if (!this.parsedData.techs[civCode][techName])
 		{
-			let techData = loadTechnology(techName, civCode);
+			let techData = this.loadTechnology(techName, civCode);
 			this.parsedData.techs[civCode][techName] = techData;
 			warn("The \"" + techName + "\" technology is not researchable in any structure buildable by the " +
 				civCode + " civilisation, but is required by something that this civ can research, train or build!");
@@ -916,7 +922,7 @@ class TechtreePage extends ReferencePage
 		}
 		if (!this.parsedData.techs[civCode][techName])
 		{
-			let techData = loadTechnology(techName, civCode);
+			let techData = this.loadTechnology(techName, civCode);
 			this.parsedData.techs[civCode][techName] = techData;
 			warn("The \"" + techName + "\" technology is not researchable in any structure buildable by the " +
 				civCode + " civilisation, but is required by something that this civ can research, train or build!");
@@ -978,6 +984,334 @@ class TechtreePage extends ReferencePage
 			return this.getActualPhase(template.requiredTechnology);
 
 		return this.getPhaseOfTechnology(template.requiredTechnology, civCode);
+	}
+	/*********************************/
+	/***********load.js**************/
+	/********************************/
+	/**
+	 * Load and parse a structure, unit, resource, etc from its entity template file.
+	 *
+	 * @return {(object|null)} Sanitized object about the requested template or null if entity template doesn't exist.
+	 */
+	loadEntityTemplate(templateName, civCode, modifiers)
+	{
+		if (!Engine.TemplateExists(templateName))
+			return null;
+
+		let template = this.loadTemplate(templateName, civCode);
+		let parsed = GetTemplateDataHelper(template, null, this.g_AuraData, this.g_ResourceData, modifiers);
+		parsed.name.internal = templateName;
+
+		parsed.history = template.Identity.History;
+
+		parsed.production = this.loadProductionQueue(template, civCode);
+		if (template.Builder)
+			parsed.builder = this.loadBuildQueue(template, civCode);
+
+		if (template.Identity.Rank)
+			parsed.promotion = {
+				"current_rank": template.Identity.Rank,
+				"entity": template.Promotion && template.Promotion.Entity
+			};
+
+		if (template.ResourceSupply)
+			parsed.supply = {
+				"type": template.ResourceSupply.Type.split("."),
+				"amount": template.ResourceSupply.Amount,
+			};
+
+		if (parsed.upgrades)
+			parsed.upgrades = this.getActualUpgradeData(parsed.upgrades, civCode);
+
+		if (parsed.wallSet)
+		{
+			parsed.wallset = {};
+
+			if (!parsed.upgrades)
+				parsed.upgrades = [];
+
+			// Note: An assumption is made here that wall segments all have the same armor and auras
+			let struct = this.loadEntityTemplate(parsed.wallSet.templates.long, civCode);
+			parsed.armour = struct.armour;
+			parsed.auras = struct.auras;
+
+			// For technology cost multiplier, we need to use the tower
+			struct = this.loadEntityTemplate(parsed.wallSet.templates.tower, civCode);
+			parsed.techCostMultiplier = struct.techCostMultiplier;
+
+			let health;
+
+			for (let wSegm in parsed.wallSet.templates)
+			{
+				if (wSegm == "fort" || wSegm == "curves")
+					continue;
+
+				let wPart = this.loadEntityTemplate(parsed.wallSet.templates[wSegm], civCode);
+				parsed.wallset[wSegm] = wPart;
+
+				for (let research of wPart.production.techs)
+					parsed.production.techs.push(research);
+
+				if (wPart.upgrades)
+					parsed.upgrades = parsed.upgrades.concat(wPart.upgrades);
+
+				if (["gate", "tower"].indexOf(wSegm) != -1)
+					continue;
+
+				if (!health)
+				{
+					health = { "min": wPart.health, "max": wPart.health };
+					continue;
+				}
+
+				health.min = Math.min(health.min, wPart.health);
+				health.max = Math.max(health.max, wPart.health);
+			}
+
+			if (parsed.wallSet.templates.curves)
+				for (let curve of parsed.wallSet.templates.curves)
+				{
+					let wPart = this.loadEntityTemplate(curve, civCode);
+					health.min = Math.min(health.min, wPart.health);
+					health.max = Math.max(health.max, wPart.health);
+				}
+
+			if (health.min == health.max)
+				parsed.health = health.min;
+			else
+				parsed.health = sprintf(translate("%(health_min)s to %(health_max)s"), {
+					"health_min": health.min,
+					"health_max": health.max
+				});
+		}
+
+		return parsed;
+	}
+	loadTechnology(techName, civCode)
+	{
+		if (civCode == undefined)
+			error("loadTechnology("+techName + ", undefined)")
+		let template = this.loadTechData(techName);
+		let tech = GetTechnologyDataHelper(template, civCode, this.g_ResourceData);
+		tech.name.internal = techName;
+		tech.supersedes = template.supersedes;
+
+		if (template.pair !== undefined)
+		{
+			tech.pair = template.pair;
+			let pairInfo = this.loadTechnologyPair(template.pair, civCode);
+			tech.paired = pairInfo.techs[0];
+			if (techName == pairInfo.techs[0])
+				tech.paired = pairInfo.techs[1];
+			tech.reqs = this.mergeRequirements(tech.reqs, pairInfo.reqs);
+		}
+
+		return tech;
+	}
+	loadTechnologyPair(pairCode, civCode)
+	{
+		var pairInfo = this.loadTechData(pairCode);
+
+		return {
+			"techs": [ pairInfo.top, pairInfo.bottom ],
+			"reqs": DeriveTechnologyRequirements(pairInfo, civCode)
+		};
+	}
+	loadProductionQueue(template, civCode)
+	{
+		const production = {
+			"techs": [],
+			"units": []
+		};
+
+		if (!template.Researcher && !template.Trainer)
+			return production;
+
+		if (template.Trainer?.Entities?._string) {
+			for (let templateName of template.Trainer.Entities._string.split(" ")) {
+				templateName = templateName.replace(/\{(civ|native)\}/g, civCode);
+				if (Engine.TemplateExists(templateName))
+					production.units.push(templateName);
+			}
+		}
+
+		const appendTechnology = (technologyName) => {
+			const technology = this.loadTechnologyTemplate(technologyName, civCode);
+			if (DeriveTechnologyRequirements(technology, civCode))
+				production.techs.push(technologyName);
+		};
+
+		if (template.Researcher?.Technologies?._string) {
+			for (let technologyName of template.Researcher.Technologies._string.split(" ")) {
+				if (technologyName.indexOf("{civ}") != -1) {
+					const civTechName = technologyName.replace("{civ}", civCode);
+					technologyName = TechnologyTemplateExists(civTechName) ? civTechName : technologyName.replace("{civ}", "generic");
+				}
+
+				if (this.isPairTech(technologyName)) {
+					let technologyPair = this.loadTechnologyPairTemplate(technologyName, civCode);
+					if (technologyPair.reqs) {
+						for (technologyName of technologyPair.techs)
+							appendTechnology(technologyName);
+					}
+				}
+				else {
+					appendTechnology(technologyName);
+				}
+			}
+		}
+		return production;
+	}
+	loadTechnologyPairTemplate(templateName, civCode)
+	{
+		let template = this.loadTechnologyTemplate(templateName);
+		return {
+			"techs": [template.top, template.bottom],
+			"reqs": DeriveTechnologyRequirements(template, civCode)
+		};
+	}
+	loadBuildQueue(template, civCode)
+	{
+		let buildQueue = [];
+
+		if (!template.Builder || !template.Builder.Entities._string)
+			return buildQueue;
+
+		for (let build of template.Builder.Entities._string.split(" "))
+		{
+			build = build.replace(/\{(civ|native)\}/g, civCode);
+			if (Engine.TemplateExists(build))
+				buildQueue.push(build);
+		}
+
+		return buildQueue;
+	};
+	getActualUpgradeData(upgradesInfo, selectedCiv)
+	{
+		let newUpgrades = [];
+		for (let upgrade of upgradesInfo)
+		{
+			upgrade.entity = upgrade.entity.replace(/\{(civ|native)\}/g, selectedCiv);
+
+			let data = GetTemplateDataHelper(this.loadTemplate(upgrade.entity, selectedCiv), null, this.g_AuraData, this.g_ResourceData);
+			data.name.internal = upgrade.entity;
+			data.cost = upgrade.cost;
+			data.icon = upgrade.icon || data.icon;
+			data.tooltip = upgrade.tooltip || data.tooltip;
+			data.requiredTechnology = upgrade.requiredTechnology || data.requiredTechnology;
+
+			newUpgrades.push(data);
+		}
+		return newUpgrades;
+	}
+	loadTechnologyTemplate(templateName)
+	{
+		let data = Engine.ReadJSONFile(this.g_TechnologyPath + templateName + ".json");
+		translateObjectKeys(data, this.g_TechnologyTranslateKeys);
+
+		// Translate specificName as in GetTechnologyData() from gui/session/session.js
+		if (typeof (data.specificName) === 'object') {
+			for (let civ in data.specificName) {
+				data.specificName[civ] = translate(data.specificName[civ]);
+			}
+		} else if (data.specificName) {
+			warn("specificName should be an object of civ->name mappings in " + templateName + ".json");
+		}
+		return data;
+	}
+	isPairTech(technologyCode)
+	{
+		return !!this.loadTechnologyTemplate(technologyCode).top;
+	}
+	loadTemplate(templateName, civCode)
+	{
+		if (!(templateName in this.g_TemplateData))
+		{
+			// We need to clone the template because we want to perform some translations.
+			let data = clone(Engine.GetTemplate(templateName));
+			translateObjectKeys(data, ["GenericName", "SpecificName", "Tooltip", "History"]);
+
+			if (data.Auras)
+				for (let auraID of data.Auras._string.split(/\s+/))
+					this.loadAuraData(auraID);
+
+			if (data.Identity.Civ != "gaia" && civCode != "gaia" && data.Identity.Civ != civCode)
+				warn("The \"" + templateName + "\" template has a defined civ of \"" + data.Identity.Civ + "\". " +
+					"This does not match the currently selected civ \"" + civCode + "\".");
+
+			this.g_TemplateData[templateName] = data;
+		}
+
+		return this.g_TemplateData[templateName];
+	}
+	loadAuraData(templateName)
+	{
+		if (!(templateName in this.g_AuraData))
+		{
+			let data = Engine.ReadJSONFile(this.g_AuraPath + templateName + ".json");
+			translateObjectKeys(data, ["auraName", "auraDescription"]);
+
+			this.g_AuraData[templateName] = data;
+		}
+
+		return this.g_AuraData[templateName];
+	}
+	loadPhase(phaseCode, civCode)
+	{
+		let phase = this.loadTechnology(phaseCode, civCode);
+
+		phase.actualPhase = phaseCode;
+		if (phase.replaces !== undefined)
+			phase.actualPhase = phase.replaces[0];
+
+		return phase;
+	}
+	findAllAutoResearchedTechs()
+	{
+		let techList = [];
+
+		for (let filename of Engine.ListDirectoryFiles(this.g_TechnologyPath, "*.json", true))
+		{
+			// -5 to strip off the file extension
+			let templateName = filename.slice(this.g_TechnologyPath.length, -5);
+			let data = this.loadTechData(templateName);
+
+			if (data && data.autoResearch)
+				techList.push(templateName);
+		}
+
+		return techList;
+	}
+	loadTechData(templateName)
+	{
+		if (!(templateName in this.g_TechnologyData))
+		{
+			let data = Engine.ReadJSONFile(this.g_TechnologyPath + templateName + ".json");
+			translateObjectKeys(data, ["genericName", "tooltip", "description"]);
+
+			this.g_TechnologyData[templateName] = data;
+		}
+
+		return this.g_TechnologyData[templateName];
+	}
+	mergeRequirements(reqsA, reqsB)
+	{
+		if (reqsA === false || reqsB === false)
+			return false;
+
+		let finalReqs = clone(reqsA);
+
+		for (let option of reqsB) {
+			for (let type in option) {
+				for (let opt in finalReqs)
+				{
+					if (!finalReqs[opt][type])
+						finalReqs[opt][type] = [];
+					finalReqs[opt][type] = finalReqs[opt][type].concat(option[type]);
+				}
+			}
+		}
+		return finalReqs;
 	}
 }
 
