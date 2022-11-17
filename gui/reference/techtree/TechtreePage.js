@@ -56,15 +56,15 @@ class TechtreePage extends ReferencePage
 		
 		this.currentModifiers = {};
 		
-		this.g_ResourceData = new Resources();
+		this.resourceData = new Resources();
 		
-		this.g_TechnologyTranslateKeys = ["genericName", "tooltip", "description"];
-		this.g_AuraPath = "simulation/data/auras/";
-		this.g_TechnologyPath = "simulation/data/technologies/";
+		this.technologyTranslateKeys = ["genericName", "tooltip", "description"];
+		this.auraPath = "simulation/data/auras/";
+		this.technologyPath = "simulation/data/technologies/";
 		
-		this.g_AuraData = {};
-		this.g_TemplateData = {};
-		this.g_TechnologyData = {};
+		this.auraData = {};
+		this.templateData = {};
+		this.technologyData = {};
 		
 		this.autoResearchTechList = this.findAllAutoResearchedTechs();
 	}
@@ -81,8 +81,6 @@ class TechtreePage extends ReferencePage
 		this.CivEmblem.sprite = "stretched:" + this.civData[this.activeCiv].Emblem;
 		this.CivName.caption = this.civData[this.activeCiv].Name;
 		this.CivHistory.caption = this.civData[this.activeCiv].History || "";
-
-		let templateLists = this.TemplateLister.getTemplateLists(this.activeCiv);
 		
 		this.selectCivOld(civCode);
 		
@@ -143,26 +141,27 @@ class TechtreePage extends ReferencePage
 			error(this.selectedCiv + " != " + this.activeCiv);
 		}
 
-		this.currentModifiers = this.deriveModifications(this.autoResearchTechList, civCode);
-
 		// If a buildList already exists, then this civ has already been parsed
-		if (this.techList[civCode])
-		{
-			this.draw(civCode);
-			return;
-		}
+		if (!this.techList[civCode])
+			this.parseCiv(civCode);
 		
+		this.draw(civCode);
+	}
+	
+	parseCiv(civCode)
+	{
 		let templateLists = this.TemplateLister.getTemplateLists(civCode);
 
+		this.currentModifiers = this.deriveModifications(this.autoResearchTechList, civCode);
 		this.parsedData.units = this.loadEntityData(templateLists.units.keys(), this.parsedData.units, civCode, this.currentModifiers);
 		this.parsedData.structures = this.loadEntityData(templateLists.structures.keys(), this.parsedData.structures, civCode, this.currentModifiers);
 		this.parsedData = this.loadTechnologies(templateLists.techs.keys(), this.parsedData, civCode);
 				
 		// Establish phase order
 		this.parsedData.phaseList = UnravelPhases(this.parsedData.phases);
-
+		const phaseList = this.parsedData.phaseList;
 		// Load any required generic phases that aren't already loaded
-		this.parsedData.phases = this.loadPhases(this.parsedData.phaseList, this.parsedData.phases, civCode);
+		this.parsedData.phases = this.loadPhases(phaseList, this.parsedData.phases, civCode);
 		
 		let techList = {};
 		let startList = {};
@@ -173,7 +172,7 @@ class TechtreePage extends ReferencePage
 			// Add technologies
 			for (let prod of structInfo.production.techs)
 			{
-				if (this.isPhaseTech(prod))// basename(prod).startsWith("phase"))
+				if (this.isPhaseTech(prod))
 					continue;
 				let same = false;
 				if (!(prod in techList)) {
@@ -184,33 +183,35 @@ class TechtreePage extends ReferencePage
 					continue;
 				let pName = this.getPhaseOfTemplate(structInfo, civCode);
 				let ptName = this.getPhaseOfTechnology(prod, civCode);
-				let pId =  this.parsedData.phaseList.indexOf(pName);
+				let pId =  phaseList.indexOf(pName);
+				const tech_list = techList[prod];
 				// loop through all buildings and return minimum phase
-				for (let b of techList[prod].buildings) {
+				for (let b of tech_list.buildings) {
 					let bs = this.parsedData.structures[b];
-					pId = Math.min(pId, this.parsedData.phaseList.indexOf(this.getPhaseOfTemplate(bs, civCode)));
+					pId = Math.min(pId, phaseList.indexOf(this.getPhaseOfTemplate(bs, civCode)));
 				}
-				pId = Math.max(pId, this.parsedData.phaseList.indexOf(ptName));
-				techList[prod].phase = this.parsedData.phaseList[pId];
-			//	warn(prod + " " + "(" + pId + ") "  + techList[prod].phase + " phase of template " + this.parsedData.phaseList.indexOf(pName) );
-				for (let req in reqs) {
-					if (basename(reqs[req]).startsWith("phase"))
+				pId = Math.max(pId, phaseList.indexOf(ptName));
+				tech_list.phase = phaseList[pId];
+	
+				for (let r in reqs) {
+					const req = reqs[r];
+					if (this.isPhaseTech(req))
 						continue;
-					if (!(reqs[req] in techList)) {
-						techList[reqs[req]] = {"require": [], "unlocks": [], "buildings": [], "units": [], "phase": "phase_village"};
+					if (!(req in techList)) {
+						techList[req] = {"require": [], "unlocks": [], "buildings": [], "units": [], "phase": "phase_village"};
 					}
-					if (techList[reqs[req]].unlocks.indexOf(prod) == -1)
-						techList[reqs[req]].unlocks.push(prod);
-					if (techList[prod].require.indexOf(reqs[req]) == -1)
-						techList[prod].require.push(reqs[req]);
+					if (techList[req].unlocks.indexOf(prod) == -1)
+						techList[req].unlocks.push(prod);
+					if (tech_list.require.indexOf(req) == -1)
+						tech_list.require.push(req);
 					// do not add to structure root technology if has requirement
 					// from the same building
-					if (structInfo.production.techs.indexOf(reqs[req]) != -1)
+					if (structInfo.production.techs.indexOf(req) != -1)
 						same = true;
 				}	
-				if (techList[prod].buildings.indexOf(structCode) == -1)
-					techList[prod].buildings.push(structCode);
-				if (techList[prod].require.length == 0 || !same) {
+				if (tech_list.buildings.indexOf(structCode) == -1)
+					tech_list.buildings.push(structCode);
+				if (tech_list.require.length == 0 || !same) {
 					if (!(structCode in startList)) {
 						startList[structCode] = [];
 					}
@@ -240,7 +241,6 @@ class TechtreePage extends ReferencePage
 		this.techList[civCode] = techList;
 		this.startingTechs[civCode] = startList;
 		this.selectStruct(Object.keys(startList)[0]);
-		this.draw(civCode);
 	}
 
 	/**** OLD DRAW CODE ****/
@@ -274,10 +274,6 @@ class TechtreePage extends ReferencePage
 	{
 		return basename(technologyCode).startsWith("phase");
 	}
-	/**
-	 * Functions used to collate the contents of a tooltip.
-	 */
-	 
 	
 	/**
 	 * Draw the techtree
@@ -292,7 +288,7 @@ class TechtreePage extends ReferencePage
 
 		let leftMargin = Engine.GetGUIObjectByName("tree_display").size.left;
 
-		let phaseList = this.parsedData.phaseList;
+		const phaseList = this.parsedData.phaseList;
 
 		Engine.GetGUIObjectByName("root_caption").caption = "";
 		Engine.GetGUIObjectByName("pair_caption").caption = "";
@@ -491,7 +487,7 @@ class TechtreePage extends ReferencePage
 	 */
 	predraw(civCode)
 	{
-		let phaseList = this.parsedData.phaseList;
+		const phaseList = this.parsedData.phaseList;
 		let scale = 40;
 		let initIconSize = {"left": 0, "right": scale, "top": 0, "bottom": scale};
 
@@ -870,6 +866,8 @@ class TechtreePage extends ReferencePage
 	 */
 	getPhaseOfTechnology(techName, civCode)
 	{
+		return this.TemplateParser.getPhaseOfTechnology(techName, civCode);
+		/*
 		let phaseIdx = -1;
 
 		if (basename(techName).startsWith("phase"))
@@ -877,7 +875,7 @@ class TechtreePage extends ReferencePage
 			if (!this.parsedData.phases[techName].reqs)
 				return false;
 
-			phaseIdx = this.parsedData.phaseList.indexOf(this.getActualPhase(techName));
+			phaseIdx = phaseList.indexOf(this.getActualPhase(techName));
 			if (phaseIdx > 0)
 				return this.parsedData.phaseList[phaseIdx - 1];
 		}
@@ -907,6 +905,7 @@ class TechtreePage extends ReferencePage
 			}
 		}
 		return this.parsedData.phaseList[phaseIdx] || false;
+		*/
 	}
 
 	getTechSupersedes(techName, civCode)
@@ -962,11 +961,14 @@ class TechtreePage extends ReferencePage
 	 */
 	getActualPhase(phaseName)
 	{
+		return this.TemplateParser.getActualPhase(phaseName);
+		/*
 		if (this.parsedData.phases[phaseName])
 			return this.parsedData.phases[phaseName].actualPhase;
 
 		warn("Unrecognised phase (" + phaseName + ")");
 		return this.parsedData.phaseList[0];
+		*/
 	}
 
 	/**
@@ -999,7 +1001,7 @@ class TechtreePage extends ReferencePage
 			return null;
 
 		let template = this.loadTemplate(templateName, civCode);
-		let parsed = GetTemplateDataHelper(template, null, this.g_AuraData, this.g_ResourceData, modifiers);
+		let parsed = GetTemplateDataHelper(template, null, this.auraData, this.resourceData, modifiers);
 		parsed.name.internal = templateName;
 
 		parsed.history = template.Identity.History;
@@ -1092,14 +1094,14 @@ class TechtreePage extends ReferencePage
 		if (civCode == undefined)
 			error("loadTechnology("+techName + ", undefined)")
 		let template = this.loadTechData(techName);
-		let tech = GetTechnologyDataHelper(template, civCode, this.g_ResourceData);
+		let tech = GetTechnologyDataHelper(template, civCode, this.resourceData);
 		tech.name.internal = techName;
 		tech.supersedes = template.supersedes;
 
 		if (template.pair !== undefined)
 		{
 			tech.pair = template.pair;
-			let pairInfo = this.loadTechnologyPair(template.pair, civCode);
+			const pairInfo = this.loadTechnologyPair(template.pair, civCode);
 			tech.paired = pairInfo.techs[0];
 			if (techName == pairInfo.techs[0])
 				tech.paired = pairInfo.techs[1];
@@ -1110,7 +1112,7 @@ class TechtreePage extends ReferencePage
 	}
 	loadTechnologyPair(pairCode, civCode)
 	{
-		var pairInfo = this.loadTechData(pairCode);
+		const pairInfo = this.loadTechData(pairCode);
 
 		return {
 			"techs": [ pairInfo.top, pairInfo.bottom ],
@@ -1186,14 +1188,16 @@ class TechtreePage extends ReferencePage
 
 		return buildQueue;
 	};
-	getActualUpgradeData(upgradesInfo, selectedCiv)
+	getActualUpgradeData(upgradesInfo, civCode)
 	{
+		return this.TemplateParser.getActualUpgradeData(upgradesInfo, civCode);
+		/*
 		let newUpgrades = [];
 		for (let upgrade of upgradesInfo)
 		{
 			upgrade.entity = upgrade.entity.replace(/\{(civ|native)\}/g, selectedCiv);
 
-			let data = GetTemplateDataHelper(this.loadTemplate(upgrade.entity, selectedCiv), null, this.g_AuraData, this.g_ResourceData);
+			let data = GetTemplateDataHelper(this.loadTemplate(upgrade.entity, selectedCiv), null, this.auraData, this.resourceData);
 			data.name.internal = upgrade.entity;
 			data.cost = upgrade.cost;
 			data.icon = upgrade.icon || data.icon;
@@ -1203,11 +1207,12 @@ class TechtreePage extends ReferencePage
 			newUpgrades.push(data);
 		}
 		return newUpgrades;
+		*/
 	}
 	loadTechnologyTemplate(templateName)
 	{
-		let data = Engine.ReadJSONFile(this.g_TechnologyPath + templateName + ".json");
-		translateObjectKeys(data, this.g_TechnologyTranslateKeys);
+		let data = Engine.ReadJSONFile(this.technologyPath + templateName + ".json");
+		translateObjectKeys(data, this.technologyTranslateKeys);
 
 		// Translate specificName as in GetTechnologyData() from gui/session/session.js
 		if (typeof (data.specificName) === 'object') {
@@ -1225,7 +1230,7 @@ class TechtreePage extends ReferencePage
 	}
 	loadTemplate(templateName, civCode)
 	{
-		if (!(templateName in this.g_TemplateData))
+		if (!(templateName in this.templateData))
 		{
 			// We need to clone the template because we want to perform some translations.
 			let data = clone(Engine.GetTemplate(templateName));
@@ -1239,22 +1244,22 @@ class TechtreePage extends ReferencePage
 				warn("The \"" + templateName + "\" template has a defined civ of \"" + data.Identity.Civ + "\". " +
 					"This does not match the currently selected civ \"" + civCode + "\".");
 
-			this.g_TemplateData[templateName] = data;
+			this.templateData[templateName] = data;
 		}
 
-		return this.g_TemplateData[templateName];
+		return this.templateData[templateName];
 	}
 	loadAuraData(templateName)
 	{
-		if (!(templateName in this.g_AuraData))
+		if (!(templateName in this.auraData))
 		{
-			let data = Engine.ReadJSONFile(this.g_AuraPath + templateName + ".json");
+			let data = Engine.ReadJSONFile(this.auraPath + templateName + ".json");
 			translateObjectKeys(data, ["auraName", "auraDescription"]);
 
-			this.g_AuraData[templateName] = data;
+			this.auraData[templateName] = data;
 		}
 
-		return this.g_AuraData[templateName];
+		return this.auraData[templateName];
 	}
 	loadPhase(phaseCode, civCode)
 	{
@@ -1270,10 +1275,10 @@ class TechtreePage extends ReferencePage
 	{
 		let techList = [];
 
-		for (let filename of Engine.ListDirectoryFiles(this.g_TechnologyPath, "*.json", true))
+		for (let filename of Engine.ListDirectoryFiles(this.technologyPath, "*.json", true))
 		{
 			// -5 to strip off the file extension
-			let templateName = filename.slice(this.g_TechnologyPath.length, -5);
+			let templateName = filename.slice(this.technologyPath.length, -5);
 			let data = this.loadTechData(templateName);
 
 			if (data && data.autoResearch)
@@ -1284,15 +1289,15 @@ class TechtreePage extends ReferencePage
 	}
 	loadTechData(templateName)
 	{
-		if (!(templateName in this.g_TechnologyData))
+		if (!(templateName in this.technologyData))
 		{
-			let data = Engine.ReadJSONFile(this.g_TechnologyPath + templateName + ".json");
+			let data = Engine.ReadJSONFile(this.technologyPath + templateName + ".json");
 			translateObjectKeys(data, ["genericName", "tooltip", "description"]);
 
-			this.g_TechnologyData[templateName] = data;
+			this.technologyData[templateName] = data;
 		}
 
-		return this.g_TechnologyData[templateName];
+		return this.technologyData[templateName];
 	}
 	mergeRequirements(reqsA, reqsB)
 	{
