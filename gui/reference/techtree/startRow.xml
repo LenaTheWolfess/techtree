@@ -1,0 +1,6 @@
+<object name="start_row" type="image" style="StructLine">
+	<repeat count="30" var="k">
+		<object type="button" style="TechIcon" name="tech[k]_icon"
+			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
+	</repeat>
+</object>

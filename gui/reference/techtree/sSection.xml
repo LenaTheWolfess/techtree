@@ -1,0 +1,20 @@
+<object name="sSection" type="image" style="SectionBox">
+	<object name="sHeader" type="image" style="StructLine">
+		<object name="sGenericName" size= "50 15 100% 35" type="text" font="sans-bold-20" textcolor="white"
+				text_align="center"	text_valign="top"/>
+		<object name="sIcon" size="5 5 45 45" type="image" style="TechIcon" 
+			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
+	</object>
+	<object name="sPhase" size="5 55 100% 90">
+		<object name="sPhaseGenericName" size= "50 0% 100% 100%" type="text" font="sans-bold-20" textcolor="white"
+				text_align="center"	text_valign="center"/>
+		<object name="sPhaseIcon" size="10 5 45 35" type="image" style="TechIcon" 
+			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
+	</object>
+	<object name="sCost" type="text" font="sans-bold-16" 
+		textcolor="white" text_align="center" text_valign="top"
+		size= "5 95 100% 130"/>
+	<object name="sDescription" type="text" font="sans-12" 
+		textcolor="white" text_align="center"	text_valign="top"
+		size= "5 135 100% 100%"/>
+</object>
