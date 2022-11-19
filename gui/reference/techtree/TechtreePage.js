@@ -349,12 +349,8 @@ class TechtreePage extends ReferencePage
 	{
 		const phaseList = this.parsedData.phaseList;
 		const initIconSize = this.getInitIconSize();
+		const leftRows = 3;
 		const rowSize = initIconSize.top - initIconSize.bottom;
-		
-		const phaseCount = phaseList.length;
-		
-		let root;
-		let size;
 		
 		let selectedTech = this.techList[civCode][this.selectedTech];
 		let selectedTemplate = this.parsedData.techs[civCode][this.selectedTech];
@@ -374,12 +370,6 @@ class TechtreePage extends ReferencePage
 		// Draw starting technlogies
 		this.techRow.predraw(civCode, this.startingTechs[civCode][this.selectedBuilding]);
 		
-		let leftRows = 3;
-		let shift = 0;
-		
-		root = Engine.GetGUIObjectByName("tSection");
-		root.size =  "30% " + (initIconSize.top - (leftRows * rowSize)) + " 70% 98%";
-
 		this.techSection.predraw("s", selectedTemplate, selectedTech, leftRows, rowSize, initIconSize, 0, this.parsedData);	
 		this.techSection.predraw("p", pSelectedTemplate, pSelectedTech, leftRows, rowSize, initIconSize, 70, this.parsedData);
 		
@@ -392,8 +382,12 @@ class TechtreePage extends ReferencePage
 		
 		if (row < 2)
 			row = 2;
+		
+		let root = Engine.GetGUIObjectByName("tSection");
+		root.size =  "30% " + (initIconSize.top - (leftRows * rowSize)) + " 70% 98%";
+		
 		root = Engine.GetGUIObjectByName("pair_caption");
-		size = root.size;
+		let size = root.size;
 		size.left = 2.5 * initIconSize.right;
 		size.right = (2.5 * initIconSize.right) + 50;
 		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
