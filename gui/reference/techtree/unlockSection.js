@@ -2,7 +2,9 @@ class UnlockSection extends TechtreeUtils
 {
 	constructor()
 	{
-		super()
+		super();
+		Engine.GetGUIObjectByName("unlock_caption").caption = "Unlocks Technologies";
+		Engine.GetGUIObjectByName("unlock_unit_caption").caption = "Unlocks Units";
 	}
 	
 	predraw(page, row, spasing, selectedTech)
@@ -15,11 +17,11 @@ class UnlockSection extends TechtreeUtils
 	{
 		if (!techs)
 			return;
-		this.drawUnlocks(page, techs.unlocks, data.techs[civCode]);
+		this.drawUnlocks(page, techs.unlocks, data.techs[civCode], civCode);
 		this.drawUnits(techs.units, data.units);
 	}
 	
-	drawUnlocks(page, unlocks, data)
+	drawUnlocks(page, unlocks, data, civCode)
 	{
 		const isHide = !unlocks || !unlocks.length;
 		Engine.GetGUIObjectByName("unlock_caption").hidden = isHide;

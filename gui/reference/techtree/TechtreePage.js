@@ -27,6 +27,7 @@ class TechtreePage extends ReferencePage
 		this.techRow = new TechRow();
 		this.techSection = new TechSection();
 		this.unlockSection = new UnlockSection();
+		this.reqSection = new ReqSection();
 		
 		if (!this.civSelection.hasCivs())
 		{
@@ -291,8 +292,6 @@ class TechtreePage extends ReferencePage
 
 		let leftMargin = Engine.GetGUIObjectByName("tree_display").size.left;
 
-		const phaseList = this.parsedData.phaseList;
-
 		Engine.GetGUIObjectByName("root_caption").caption = "";
 		Engine.GetGUIObjectByName("pair_caption").caption = "";
 		
@@ -300,56 +299,8 @@ class TechtreePage extends ReferencePage
 		this.techRow.draw(this, civCode, this.startingTechs[civCode], this.selectedBuilding, this.parsedData, this.selectedTech);
 		
 		// Draw requirements
-		let i = 0;
-		const selTech = this.techList[civCode][this.selectedTech];
-		if (selTech) {
-			for (let struct of selTech.buildings)
-			{
-				let thisEle = Engine.GetGUIObjectByName("req_struct["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" tech can be researched in more structures than can be supported by the current GUI layout");
-					break;
-				}
-				let child = this.parsedData.structures[struct];
+		this.reqSection.draw(this, civCode, this.techList[civCode][this.selectedTech], this.parsedData);
 				
-				thisEle.sprite = this.IconPath  + child.icon;
-				thisEle.tooltip = this.FontType + child.name.generic + '[/font]\n(' + child.name.specific+")";
-				const that = this;
-				thisEle.onPress = function() {
-					that.selectStruct(struct);
-					that.draw(civCode);
-				}
-				thisEle.hidden = false;
-				++i;
-			}
-			i = 0;
-			for (let tech of selTech.require)
-			{
-				let thisEle = Engine.GetGUIObjectByName("req["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" has more techs in phase " +
-						  pha + " than can be supported by the current GUI layout");
-					break;
-				}
-				let child = this.parsedData.techs[civCode][tech];
-				if (!child) {
-					warn("Technology not parsed for " + tech);
-					continue;
-				}
-				thisEle.sprite = this.IconPath + child.icon;
-				thisEle.tooltip = this.FontType +  child.name.generic + '[/font]\n' + child.description;
-				let that = this;
-				thisEle.onPress = function() {
-					that.selectTech(child.name.internal);
-					that.draw(civCode);
-				}
-				thisEle.hidden = false;
-				++i;
-			}
-		}
-		
 		let rootIcon = Engine.GetGUIObjectByName("root");
 		let pairIcon = Engine.GetGUIObjectByName("pair");
 		let rootTech = this.parsedData.techs[civCode][this.selectedTech];
@@ -410,12 +361,7 @@ class TechtreePage extends ReferencePage
 		
 		let pSelectedTech;
 		let pSelectedTemplate;
-		
-		Engine.GetGUIObjectByName("req_caption").caption = "Requirements";
-		Engine.GetGUIObjectByName("req_struct_caption").caption = "Researched in/by";
-		Engine.GetGUIObjectByName("unlock_caption").caption = "Unlocks Technologies";
-		Engine.GetGUIObjectByName("unlock_unit_caption").caption = "Unlocks Units";
-		
+			
 		if (selectedTemplate) {
 			if (selectedTemplate.paired) {
 				pSelectedTech = this.techList[civCode][selectedTemplate.paired];
@@ -429,7 +375,6 @@ class TechtreePage extends ReferencePage
 		this.techRow.predraw(civCode, this.startingTechs[civCode][this.selectedBuilding]);
 		
 		let leftRows = 3;
-		let spasing = 0;
 		let shift = 0;
 		
 		root = Engine.GetGUIObjectByName("tSection");
@@ -437,64 +382,22 @@ class TechtreePage extends ReferencePage
 
 		this.techSection.predraw("s", selectedTemplate, selectedTech, leftRows, rowSize, initIconSize, 0, this.parsedData);	
 		this.techSection.predraw("p", pSelectedTemplate, pSelectedTech, leftRows, rowSize, initIconSize, 70, this.parsedData);
-				
-		let row = 0;
-		root = Engine.GetGUIObjectByName("req_struct_caption");
-		size = root.size;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		root.hidden = selectedTech.buildings.length == 0;
-		spasing += ((size.bottom - size.top) / 2);
-		let b = 0;
-		if (selectedTech && selectedTech.buildings.length > 0) {
-			shift = selectedTech.buildings.length / 2;
-			for (let struct of selectedTech.buildings) {
-				let thisEle = Engine.GetGUIObjectByName("req_struct["+b+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" tech can be researched in more structures than can be supported by the current GUI layout");
-					break;
-				}
-				this.setIconRowSize(thisEle, initIconSize, b, shift, row, spasing);
-				b++;
-			}
-			row++;
-		}
-		for (let x = b; x < this.maxItems; ++x) {
-			Engine.GetGUIObjectByName("req_struct["+x+"]_icon").hidden = true;
-		}
-		let i = 0;
-		root = Engine.GetGUIObjectByName("req_caption");
-		size = root.size;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		root.hidden = selectedTech.require.length == 0;
-		spasing += ((size.bottom - size.top) / 2);
-		// Draw req
-		if (selectedTech && selectedTech.require.length > 0) {
-			shift = selectedTech.require.length / 2;
-			for (let tech of selectedTech.require) {
-				let thisEle = Engine.GetGUIObjectByName("req["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
-					break;
-				}
-				this.setIconRowSize(thisEle, initIconSize, i, shift, row, spasing);
-				++i;
-			}
-			row++;
-		}
-		for (let x = i; x < this.maxItems; ++x) {
-			Engine.GetGUIObjectByName("req["+x+"]_icon").hidden = true;
-		}
 		
+		let row = 0;
+		let spasing = 0;
+		let res = this.reqSection.predraw(this, row, spasing, selectedTech, civCode);
+		
+		spasing = res.spasing;
+		row = res.row;
+		
+		if (row < 2)
+			row = 2;
 		root = Engine.GetGUIObjectByName("pair_caption");
 		size = root.size;
 		size.left = 2.5 * initIconSize.right;
 		size.right = (2.5 * initIconSize.right) + 50;
 		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
 		
-		if (row < 2)
-			row = 2;
 		root = Engine.GetGUIObjectByName("root_caption");
 		size = root.size;
 		size.left = -100;
