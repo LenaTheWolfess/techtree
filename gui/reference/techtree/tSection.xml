@@ -1,12 +1,17 @@
 <object name="tSection" style="TreeDisplay" size="30% 0 70% 100%" >
+	<object name="req_struct_caption" 	font="sans-bold-12" textcolor="white"
+			text_align="center"	text_valign="top" type="text"/>
+	<repeat count="30" var="u">
+		<object type="button" style="TechIcon" name="req_struct[u]_icon" 
+			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
+	</repeat>
 	<object name="req_caption" 	font="sans-bold-12" textcolor="white"
 			text_align="center"	text_valign="top" type="text"/>
-	<object name="req_struct" type="button" style="TechIcon" sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
 	<repeat count="30" var="u">
 		<object type="button" style="TechIcon" name="req[u]_icon" 
 			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
 	</repeat>
-		<object name="root_caption" 	font="sans-bold-20" textcolor="white"
+	<object name="root_caption" 	font="sans-bold-20" textcolor="white"
 			text_align="center"	text_valign="top" type="text"/>
 	<object name="root" type="button" style="TechIcon" sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
 	<object name="pair_caption" 	font="sans-bold-12" textcolor="white"
