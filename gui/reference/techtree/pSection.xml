@@ -5,16 +5,18 @@
 		<object name="pIcon" size="5 5 45 45" type="image" style="TechIcon" 
 			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
 	</object>
+	<!--
 	<object name="pPhase" size="5 55 100% 90">
 		<object name="pPhaseGenericName" size= "50 0% 100% 100%" type="text" font="sans-bold-20" textcolor="white"
 				text_align="center"	text_valign="center"/>
 		<object name="pPhaseIcon" size="10 5 45 35" type="image" style="TechIcon" 
 			sprite="stretched:pregame/shell/logo/wfg_logo_white.png"/>
 	</object>
+	-->
 	<object name="pCost" type="text" font="sans-bold-16" 
 		textcolor="white" text_align="center" text_valign="top"
-		size= "5 95 100% 130"/>
+		size= "5 55 100% 55+35"/>
 	<object name="pDescription" type="text" font="sans-12" 
 		textcolor="white" text_align="center"	text_valign="top"
-		size= "5 135 100% 100%"/>
+		size= "5 55+40 100% 100%"/>
 </object>

@@ -26,11 +26,11 @@ class TechSection extends TechtreeUtils
 		root.hidden = false;
 		root = Engine.GetGUIObjectByName(prefix+"Description");
 		if (selectedTemplate.tooltip)
-			root.caption = selectedTemplate.tooltip;
+			root.caption = selectedTemplate.tooltip || "";
 		else
-			root.caption = selectedTemplate.description;
+			root.caption = selectedTemplate.description || "";
 		root.hidden = false;
-			
+		/*	
 		root = Engine.GetGUIObjectByName(prefix+"Phase");
 		if (pSelectedTech && pSelectedTech.phase) {
 			root.hidden = false;
@@ -45,7 +45,7 @@ class TechSection extends TechtreeUtils
 			Engine.GetGUIObjectByName(prefix+"PhaseGenericName").hidden = true;
 			Engine.GetGUIObjectByName(prefix+"PhaseIcon").hidden = true;
 		}
-			
+		*/
 		root = Engine.GetGUIObjectByName(prefix+"Cost");
 		let caption = "";
 		let cc = 0;

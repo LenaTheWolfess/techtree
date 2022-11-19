@@ -49,7 +49,8 @@ class TechtreePage extends ReferencePage
 			"units": {},
 			"structures": {},
 			"techs": {},
-			"phases": {}
+			"phases": {},
+			"replacing": {}
 		};
 		/**
 		 * Array of structure template names when given a civ and a phase name.
@@ -165,7 +166,8 @@ class TechtreePage extends ReferencePage
 		const phaseList = this.parsedData.phaseList;
 		// Load any required generic phases that aren't already loaded
 		this.parsedData.phases = this.loadPhases(phaseList, this.parsedData.phases, civCode);
-		
+		this.parsedData.replacing = this.buildReplacing(this.parsedData.phases);
+		this.parsedData.techs = this.appendPhases(this.parsedData.phases, this.parsedData.techs, civCode);
 		let techList = {};
 		let startList = {};
 		// Get all technologies for selected civ
@@ -175,8 +177,8 @@ class TechtreePage extends ReferencePage
 			// Add technologies
 			for (let prod of structInfo.production.techs)
 			{
-				if (this.isPhaseTech(prod))
-					continue;
+				//if (this.isPhaseTech(prod))
+				//	continue;
 				let same = false;
 				if (!(prod in techList)) {
 					techList[prod] = this.defaultTechScheme();
@@ -196,11 +198,11 @@ class TechtreePage extends ReferencePage
 				}
 				pId = Math.max(pId, phaseList.indexOf(ptName));
 				tech_list.phase = phaseList[pId];
-	
+				
 				for (let r in reqs) {
 					const req = reqs[r];
-					if (this.isPhaseTech(req))
-						continue;
+					//if (this.isPhaseTech(req))
+					//	continue;
 					if (!(req in techList)) {
 						techList[req] = this.defaultTechScheme();
 					}
@@ -224,6 +226,18 @@ class TechtreePage extends ReferencePage
 					this.selectedBuilding = structCode;
 					this.selectedTech = prod;
 				}
+				// Add phase to req
+				let req = tech_list.phase;
+				if (!!req) {
+					if (req in this.parsedData.replacing) {
+						req = this.parsedData.replacing[req];
+					}
+					if (!(req in techList)) {
+						techList[req] = this.defaultTechScheme();
+					}
+					if (tech_list.require.indexOf(req) == -1)
+						tech_list.require.push(req);
+				}
 			}
 			// Add units to technologies
 			for (let prod of structInfo.production.units)
@@ -233,6 +247,8 @@ class TechtreePage extends ReferencePage
 					continue;
 				let tech = template.requiredTechnology;
 				if (tech) {
+					if (this.isPhaseTech(tech))
+						continue;
 					if (!(tech in techList)) {
 						techList[tech] = this.defaultTechScheme();
 					}
@@ -265,6 +281,35 @@ class TechtreePage extends ReferencePage
 			else
 				data.techs[civCode][techcode] = this.loadTechnology(techcode, civCode);
 		}
+		return data;
+	}
+	buildReplacing(phases) {
+		let data = {};
+		for (let i in phases) {
+			const phase = phases[i];
+			if (phase.replaces !== undefined && phase.replaces.length > 0) {
+				data[phase.replaces[0]] = i;
+			}
+		}
+		return data;
+	}
+	appendPhases(keys, data, civCode) {
+		for (let t in keys) {
+			data[civCode][t] = this.loadTechnology(t, civCode);//keys[t];
+		}
+		/*
+		warn("keys = "+uneval(keys));
+		for (let t in keys) {
+			let techCode = keys[t];
+			if (!!techCode)
+			{
+				warn(uneval(techCode));
+				if (basename(techCode).startsWith("phase")) {
+					data[civCode][techCode] = this.loadTechnology(techCode, civCode);
+				}
+			}
+		}
+		*/
 		return data;
 	}
 	loadPhases(keys, phases, civCode) {
@@ -453,7 +498,9 @@ class TechtreePage extends ReferencePage
 
 	getTechSupersedes(techName, civCode)
 	{
-		if (basename(techName).startsWith("phase"))
+		const isPhase = basename(techName).startsWith("phase");
+		/*
+		if (isPhase)
 		{
 			if (!this.parsedData.phases[techName].superseded)
 				return false;
@@ -462,6 +509,7 @@ class TechtreePage extends ReferencePage
 			if (phaseIdx > 0)
 				return this.parsedData.phaseList[phaseIdx - 1];
 		}
+		*/
 		if (!this.parsedData.techs[civCode][techName])
 		{
 			let techData = this.loadTechnology(techName, civCode);
@@ -476,13 +524,13 @@ class TechtreePage extends ReferencePage
 			return false;
 		let req = [];
 		if (supers) {
-			if (!basename(supers).startsWith("phase") && !basename(supers).startsWith("pair"))
+			if ((!basename(supers).startsWith("phase") || isPhase) && !basename(supers).startsWith("pair"))
 				req.push(supers);
 		}
 		for (let option of techReqs) {
 			if (!!option.techs) {
 				for (let tech of option.techs) {
-					if (basename(tech).startsWith("phase"))
+					if (basename(tech).startsWith("phase") && !isPhase)
 						continue;
 					if (basename(tech).startsWith("pair"))
 						continue;

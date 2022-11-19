@@ -9,8 +9,9 @@ class UnlockSection extends TechtreeUtils
 	
 	predraw(page, row, spasing, selectedTech)
 	{
-		spasing = this.predrawUnlocks(page, row, spasing, selectedTech);
-		spasing = this.predrawUnits(page, row, spasing, selectedTech);
+		let res = {"row": row, "spasing": spasing};
+		res = this.predrawUnlocks(page, res, selectedTech);
+		res = this.predrawUnits(page, res, selectedTech);
 	}
 	
 	draw(page, civCode, techs, data)
@@ -75,13 +76,17 @@ class UnlockSection extends TechtreeUtils
 		}
 	}
 	
-	predrawUnlocks(page, row, spasing, selectedTech)
+	predrawUnlocks(page, res, selectedTech)
 	{
 		const initIconSize = this.getInitIconSize();
 		const rowSize = initIconSize.top - initIconSize.bottom;
 		
+		let row = res.row;
+		let spasing = res.spasing;
+		
 		let root = Engine.GetGUIObjectByName("unlock_caption");
 		let size = root.size;
+		
 		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
 		spasing += ((size.bottom - size.top) / 2);
 		
@@ -104,15 +109,20 @@ class UnlockSection extends TechtreeUtils
 		for (let x = i; x < this.maxItems; ++x) {
 			Engine.GetGUIObjectByName("unlock["+x+"]_icon").hidden = true;
 		}
-		return spasing;
+		return {"row" : row, "spasing": spasing};
 	}
 	
-	predrawUnits(page, row, spasing, selectedTech)
+	predrawUnits(page, res, selectedTech)
 	{
 		const initIconSize = this.getInitIconSize();
 		const rowSize = initIconSize.top - initIconSize.bottom;
+		
+		let row = res.row;
+		let spasing = res.spasing;
+		
 		let root = Engine.GetGUIObjectByName("unlock_unit_caption");
 		let size = root.size;
+		
 		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
 		spasing += (size.bottom - size.top) / 2;
 		
@@ -135,6 +145,6 @@ class UnlockSection extends TechtreeUtils
 		for (let x = i; x < this.maxItems; ++x) {
 			Engine.GetGUIObjectByName("unlock_unit["+x+"]_icon").hidden = true;
 		}
-		return spasing;
+		return {"row" : row, "spasing": spasing};
 	}
 }
