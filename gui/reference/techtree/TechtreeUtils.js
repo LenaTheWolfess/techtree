@@ -32,5 +32,8 @@ class TechtreeUtils {
 }
 
 TechtreeUtils.prototype.scale = 40;
+TechtreeUtils.prototype.spasing = 8;
+TechtreeUtils.prototype.maxItems = 30;
 TechtreeUtils.prototype.CostFree = "Cost free";
 TechtreeUtils.prototype.IconPath = "stretched:session/portraits/";
+TechtreeUtils.prototype.FontType = '[font="sans-bold-16"]';

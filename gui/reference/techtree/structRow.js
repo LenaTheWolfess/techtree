@@ -57,7 +57,4 @@ class StructRow extends TechtreeUtils
 		}
 	}
 };
-StructRow.prototype.maxItems = 30;
-StructRow.prototype.spasing = 8;
 StructRow.prototype.row = 0;
-StructRow.prototype.FontType = '[font="sans-bold-16"]';

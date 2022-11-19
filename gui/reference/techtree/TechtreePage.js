@@ -22,12 +22,11 @@ class TechtreePage extends ReferencePage
 		this.Utils = new TechtreeUtils();
 		this.scale = this.Utils.scale;
 		
-//		this.TreeSection = new TreeSection(this);
-
 		this.civSelection = new CivSelectDropdown(this.civData);
 		this.structRow = new StructRow();
 		this.techRow = new TechRow();
 		this.techSection = new TechSection();
+		this.unlockSection = new UnlockSection();
 		
 		if (!this.civSelection.hasCivs())
 		{
@@ -382,51 +381,7 @@ class TechtreePage extends ReferencePage
 		}
 		
 		// Draw unlocks
-		if (this.techList[civCode][this.selectedTech]) {
-			i = 0;	
-			Engine.GetGUIObjectByName("unlock_caption").hidden = !this.techList[civCode][this.selectedTech].unlocks.length;
-			for (let tech of this.techList[civCode][this.selectedTech].unlocks)
-			{
-				let thisEle = Engine.GetGUIObjectByName("unlock["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" has more techs in phase " +
-						  pha + " than can be supported by the current GUI layout");
-					break;
-				}
-				let child = this.parsedData.techs[civCode][tech];
-				
-				thisEle.sprite = this.IconPath + child.icon;
-				thisEle.tooltip = this.FontType +  child.name.generic + '[/font]\n' + child.description;
-				let that = this;
-				thisEle.onPress = function() {
-					that.selectTech(child.name.internal);
-					that.draw(civCode);
-				}
-				thisEle.hidden = false;
-
-				++i;
-			}
-			i = 0;
-			Engine.GetGUIObjectByName("unlock_unit_caption").hidden = !this.techList[civCode][this.selectedTech].units.length;
-			for (let unit of this.techList[civCode][this.selectedTech].units)
-			{
-				let thisEle = Engine.GetGUIObjectByName("unlock_unit["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" has more techs in phase " +
-						  pha + " than can be supported by the current GUI layout");
-					break;
-				}
-				let child = this.parsedData.units[unit];
-				
-				thisEle.sprite = this.IconPath + child.icon;
-				thisEle.tooltip = this.FontType +  child.name.generic + '[/font]\n(' + child.name.specific+")";
-				EntityBox.setViewerOnPress(thisEle, unit);
-				thisEle.hidden = false;
-				++i;
-			}
-		}
+		this.unlockSection.draw(this, civCode, this.techList[civCode][this.selectedTech], this.parsedData)
 		let size = Engine.GetGUIObjectByName("display_tree").size;
 		size.right = -4;
 		Engine.GetGUIObjectByName("display_tree").size = size;
@@ -565,53 +520,7 @@ class TechtreePage extends ReferencePage
 		root.hidden = true;
 		
 		row++;
-		i = 0;
-		root = Engine.GetGUIObjectByName("unlock_caption");
-		size = root.size;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		spasing += ((size.bottom - size.top) / 2);
-		// Draw unlocks
-		if (selectedTech) {
-			shift = selectedTech.unlocks.length/2;
-			for (let tech of selectedTech.unlocks) {
-				let thisEle = Engine.GetGUIObjectByName("unlock["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
-					break;
-				}
-				// Set start tech icon
-				this.setIconRowSize(thisEle, initIconSize, i, shift, row, spasing);
-				++i;
-			}
-			if (i)
-				row++;
-		}
-		for (let x = i; x < this.maxItems; ++x) {
-			Engine.GetGUIObjectByName("unlock["+x+"]_icon").hidden = true;
-		}
-		i = 0;
-		root = Engine.GetGUIObjectByName("unlock_unit_caption");
-		size = root.size;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		spasing += (size.bottom - size.top) / 2;
-		if (selectedTech) {
-			shift = selectedTech.units.length/2;
-			for (let tech of selectedTech.units) {
-				let thisEle = Engine.GetGUIObjectByName("unlock_unit["+i+"]_icon");
-				if (thisEle === undefined)
-				{
-					error("\""+civCode+"\" has more starting techs than can be supported by the current GUI layout");
-					break;
-				}
-				// Set start tech icon
-				this.setIconRowSize(thisEle, initIconSize, i, shift, row, spasing);
-				++i;
-			}
-		}
-		for (let x = i; x < this.maxItems; ++x) {
-			Engine.GetGUIObjectByName("unlock_unit["+x+"]_icon").hidden = true;
-		}
+		this.unlockSection.predraw(this, row, spasing, selectedTech);
 	}
 		
 	setIconRowSize(thisEle, initIconSize, i, shift, row, spasing)

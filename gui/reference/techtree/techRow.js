@@ -59,7 +59,4 @@ class TechRow extends TechtreeUtils
 		}
 	}
 };
-TechRow.prototype.maxItems = 30;
-TechRow.prototype.spasing = 8;
 TechRow.prototype.row = 0;
-TechRow.prototype.FontType = '[font="sans-bold-16"]';
