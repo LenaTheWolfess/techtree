@@ -18,7 +18,7 @@ class TechtreePage extends ReferencePage
 		this.CivEmblem = Engine.GetGUIObjectByName("civEmblem");
 		this.CivName = Engine.GetGUIObjectByName("civName");
 		this.CivHistory = Engine.GetGUIObjectByName("civHistory");
-
+				
 		this.Utils = new TechtreeUtils();
 		this.scale = this.Utils.scale;
 		
@@ -28,6 +28,7 @@ class TechtreePage extends ReferencePage
 		this.techSection = new TechSection();
 		this.unlockSection = new UnlockSection();
 		this.reqSection = new ReqSection();
+		this.mainSection = new MainSection();
 		
 		if (!this.civSelection.hasCivs())
 		{
@@ -336,45 +337,14 @@ class TechtreePage extends ReferencePage
 			this.predraw(civCode);
 
 		let leftMargin = Engine.GetGUIObjectByName("tree_display").size.left;
-
-		Engine.GetGUIObjectByName("root_caption").caption = "";
-		Engine.GetGUIObjectByName("pair_caption").caption = "";
 		
 		this.structRow.draw(this, civCode, this.startingTechs[civCode], this.parsedData.structures);
 		this.techRow.draw(this, civCode, this.startingTechs[civCode], this.selectedBuilding, this.parsedData, this.selectedTech);
 		
 		// Draw requirements
 		this.reqSection.draw(this, civCode, this.techList[civCode][this.selectedTech], this.parsedData);
-				
-		let rootIcon = Engine.GetGUIObjectByName("root");
-		let pairIcon = Engine.GetGUIObjectByName("pair");
-		let rootTech = this.parsedData.techs[civCode][this.selectedTech];
 
-		if (rootTech) {
-			let pairedTech;
-			let pair = rootTech.paired;
-			if (pair)
-				pairedTech = this.parsedData.techs[civCode][pair];
-			pairIcon.hidden = true;
-			if (pairedTech) {
-				pairIcon.sprite = this.IconPath + pairedTech.icon;
-				pairIcon.tooltip = this.FontType + pairedTech.name.generic + '[/font]\n' + pairedTech.description;
-				Engine.GetGUIObjectByName("pair_caption").caption = "Paired with";
-				let that = this;
-				pairIcon.onPress = function() {
-					that.selectTech(pairedTech.name.internal);
-					that.draw(civCode);
-				}
-				pairIcon.hidden = false;
-			}
-			rootIcon.sprite = this.IconPath + rootTech.icon;
-			rootIcon.tooltip = rootTech.name.generic + "\n" + rootTech.description;
-			Engine.GetGUIObjectByName("root_caption").caption = rootTech.name.generic;
-			rootIcon.hidden = false;
-		} else {
-			rootIcon.hidden = true;
-			pairIcon.hidden = true;
-		}
+		this.mainSection.draw(this, civCode, this.parsedData.techs[civCode][this.selectedTech], this.parsedData.techs[civCode]);
 		
 		// Draw unlocks
 		this.unlockSection.draw(this, civCode, this.techList[civCode][this.selectedTech], this.parsedData)
@@ -418,51 +388,11 @@ class TechtreePage extends ReferencePage
 		this.techSection.predraw("s", selectedTemplate, selectedTech, leftRows, rowSize, initIconSize, 0, this.parsedData);	
 		this.techSection.predraw("p", pSelectedTemplate, pSelectedTech, leftRows, rowSize, initIconSize, 70, this.parsedData);
 		
-		let row = 0;
-		let spasing = 0;
-		let res = this.reqSection.predraw(this, row, spasing, selectedTech, civCode);
+		let res = this.reqSection.predraw(this, 0, 0, selectedTech, civCode);
 		
-		spasing = res.spasing;
-		row = res.row;
-		
-		if (row < 2)
-			row = 2;
-		
-		let root = Engine.GetGUIObjectByName("tSection");
-		root.size =  "30% " + (initIconSize.top - (leftRows * rowSize)) + " 70% 98%";
-		
-		root = Engine.GetGUIObjectByName("pair_caption");
-		let size = root.size;
-		size.left = 2.5 * initIconSize.right;
-		size.right = (2.5 * initIconSize.right) + 50;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		
-		root = Engine.GetGUIObjectByName("root_caption");
-		size = root.size;
-		size.left = -100;
-		size.right = 100;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		spasing += ((size.bottom - size.top) / 1.5);
-		root.hidden = false;
-		
-		// Draw root of tree
-		root = Engine.GetGUIObjectByName("root");
-		size = root.size;
-		size.left = -0.5 * initIconSize.right;
-		size.right = 0.5 * initIconSize.right;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		root.hidden = false;
-		
-		// Draw pair of tree
-		root = Engine.GetGUIObjectByName("pair");
-		size = root.size;
-		size.left = 2.5 * initIconSize.right;
-		size.right = 3.5 * initIconSize.right;
-		root.size = this.setBottomTopSize(size, initIconSize, row, rowSize, spasing);
-		root.hidden = true;
-		
-		row++;
-		this.unlockSection.predraw(this, row, spasing, selectedTech);
+		let spasing = res.spasing;
+		spasing = this.mainSection.predraw(spasing);
+		this.unlockSection.predraw(this, 3, spasing, selectedTech);
 	}
 		
 	setIconRowSize(thisEle, initIconSize, i, shift, row, spasing)
@@ -498,7 +428,7 @@ class TechtreePage extends ReferencePage
 
 	getTechSupersedes(techName, civCode)
 	{
-		const isPhase = basename(techName).startsWith("phase");
+		const isPhase = this.isPhaseTech(techName);
 		/*
 		if (isPhase)
 		{
@@ -524,13 +454,13 @@ class TechtreePage extends ReferencePage
 			return false;
 		let req = [];
 		if (supers) {
-			if ((!basename(supers).startsWith("phase") || isPhase) && !basename(supers).startsWith("pair"))
+			if ((!this.isPhaseTech(supers) || isPhase) && !basename(supers).startsWith("pair"))
 				req.push(supers);
 		}
 		for (let option of techReqs) {
 			if (!!option.techs) {
 				for (let tech of option.techs) {
-					if (basename(tech).startsWith("phase") && !isPhase)
+					if (this.isPhaseTech(tech) && !isPhase)
 						continue;
 					if (basename(tech).startsWith("pair"))
 						continue;
@@ -566,7 +496,7 @@ class TechtreePage extends ReferencePage
 		if (!template.requiredTechnology)
 			return this.parsedData.phaseList[0];
 
-		if (basename(template.requiredTechnology).startsWith("phase"))
+		if (this.isPhaseTech(template.requiredTechnology))
 			return this.getActualPhase(template.requiredTechnology);
 
 		return this.getPhaseOfTechnology(template.requiredTechnology, civCode);
