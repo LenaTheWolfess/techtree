@@ -25,7 +25,7 @@ class MainSection extends TechtreeUtils
 			this.pairCaption.hidden = true;
 			if (pairedTech) {
 				this.pairIcon.sprite = this.IconPath + pairedTech.icon;
-				this.pairIcon.tooltip = this.FontType + pairedTech.name.generic + '[/font]\n' + pairedTech.description;
+				this.pairIcon.tooltip = this.FontType + pairedTech.name.generic + '[/font]\n' + (pairedTech.description || "");
 				let that = page;
 				this.pairIcon.onPress = function() {
 					that.selectTech(pairedTech.name.internal);
@@ -35,7 +35,7 @@ class MainSection extends TechtreeUtils
 				this.pairCaption.hidden = false;
 			}
 			this.rootIcon.sprite = this.IconPath + rootTech.icon;
-			this.rootIcon.tooltip = rootTech.name.generic + "\n" + rootTech.description;
+			this.rootIcon.tooltip = this.FontType + rootTech.name.generic + "[/font]\n" + (rootTech.description || "");
 			this.rootCaption.caption = rootTech.name.generic;
 			this.rootIcon.hidden = false;
 			this.rootCaption.hidden = false;

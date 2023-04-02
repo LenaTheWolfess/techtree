@@ -37,7 +37,7 @@ class ReqSection extends TechtreeUtils
 			const child = data[struct];
 			
 			thisEle.sprite = this.IconPath  + child.icon;
-			thisEle.tooltip = this.FontType + child.name.generic + '[/font]\n(' + child.name.specific+")";
+			thisEle.tooltip = this.FontType + child.name.generic + '[/font]\n(' + (child.name.specific || "")+")";
 			const that = page;
 			thisEle.onPress = function() {
 				that.selectStruct(struct);
@@ -66,7 +66,7 @@ class ReqSection extends TechtreeUtils
 				continue;
 			}
 			thisEle.sprite = this.IconPath + child.icon;
-			thisEle.tooltip = this.FontType +  child.name.generic + '[/font]\n' + child.description;
+			thisEle.tooltip = this.FontType +  child.name.generic + '[/font]\n' + (child.description || "");
 			let that = page;
 			thisEle.onPress = function() {
 				that.selectTech(child.name.internal);
