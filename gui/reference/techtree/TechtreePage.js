@@ -24,11 +24,12 @@ class TechtreePage extends ReferencePage
 		
 		this.civSelection = new CivSelectDropdown(this.civData);
 		this.structRow = new StructRow();
-		this.techRow = new TechRow();
+	//	this.techRow = new TechRow();
 		this.techSection = new TechSection();
 		this.unlockSection = new UnlockSection();
 		this.reqSection = new ReqSection();
 		this.mainSection = new MainSection();
+		this.listSection = new TechList(this);
 		
 		if (!this.civSelection.hasCivs())
 		{
@@ -130,6 +131,8 @@ class TechtreePage extends ReferencePage
 		this.selectedTech = "";
 		if (this.startingTechs[this.selectedCiv] && this.startingTechs[this.selectedCiv][this.selectedBuilding]) {
 			this.selectTech(this.startingTechs[this.selectedCiv][this.selectedBuilding][0]);
+			let civCode = this.selectedCiv;
+			this.listSection.draw(this, civCode, this.startingTechs[civCode], this.selectedBuilding, this.parsedData, this.selectedTech);
 		}
 	}
 
@@ -150,6 +153,7 @@ class TechtreePage extends ReferencePage
 		if (!this.techList[civCode])
 			this.parseCiv(civCode);
 		
+		this.listSection.draw(this, civCode, this.startingTechs[civCode], this.selectedBuilding, this.parsedData, this.selectedTech);
 		this.draw(civCode);
 	}
 	
@@ -332,6 +336,8 @@ class TechtreePage extends ReferencePage
 	 */
 	draw(civCode)
 	{
+		if (civCode == "")
+			return;
 		// Set basic state (positioning of elements mainly), but only once
 		//if (!Object.keys(this.g_DrawLimits).length)
 			this.predraw(civCode);
@@ -339,8 +345,8 @@ class TechtreePage extends ReferencePage
 		let leftMargin = Engine.GetGUIObjectByName("tree_display").size.left;
 		
 		this.structRow.draw(this, civCode, this.startingTechs[civCode], this.parsedData.structures);
-		this.techRow.draw(this, civCode, this.startingTechs[civCode], this.selectedBuilding, this.parsedData, this.selectedTech);
-		
+		//this.techRow.draw(this, civCode, this.startingTechs[civCode], this.selectedBuilding, this.parsedData, this.selectedTech);
+				
 		// Draw requirements
 		this.reqSection.draw(this, civCode, this.techList[civCode][this.selectedTech], this.parsedData);
 
@@ -364,11 +370,14 @@ class TechtreePage extends ReferencePage
 	{
 		const phaseList = this.parsedData.phaseList;
 		const initIconSize = this.getInitIconSize();
-		const leftRows = 3;
+		const leftRows = 2;
 		const rowSize = initIconSize.top - initIconSize.bottom;
 		
 		let selectedTech = this.techList[civCode][this.selectedTech];
 		let selectedTemplate = this.parsedData.techs[civCode][this.selectedTech];
+		
+		if (selectedTech == undefined || selectedTemplate == undefined)
+			return;
 		
 		let pSelectedTech;
 		let pSelectedTemplate;
@@ -383,7 +392,10 @@ class TechtreePage extends ReferencePage
 		// Draw buildings
 		this.structRow.predraw(civCode, this.startingTechs[civCode]);
 		// Draw starting technlogies
-		this.techRow.predraw(civCode, this.startingTechs[civCode][this.selectedBuilding]);
+		//this.techRow.predraw(civCode, this.startingTechs[civCode][this.selectedBuilding]);
+		// Draw technologies in list
+		this.listSection.predraw(civCode, this.startingTechs[civCode][this.selectedBuilding], initIconSize ,leftRows, rowSize);
+		
 		
 		this.techSection.predraw("s", selectedTemplate, selectedTech, leftRows, rowSize, initIconSize, 0, this.parsedData);	
 		this.techSection.predraw("p", pSelectedTemplate, pSelectedTech, leftRows, rowSize, initIconSize, 70, this.parsedData);

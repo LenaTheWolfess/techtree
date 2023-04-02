@@ -16,7 +16,11 @@ class TechSection extends TechtreeUtils
 		}
 		
 		let root = Engine.GetGUIObjectByName(prefix+"Section");
-		root.size =  shift + "% " + (initIconSize.top - (leftRows * rowSize)) + " " + (shift + 30) + "% 98%";
+		const xShift = 70;
+		const ySize = 35;
+		const yShift = shift > 0 ? ySize : 0;
+		const yTop = (initIconSize.top - (leftRows * rowSize));
+		root.size =  xShift + "% " + yTop + "+" + (yShift) + "% " + (xShift + 30) + "% " + (yTop + "+" + (yShift+ySize) ) + "%";
 		root.hidden = false;
 		root = Engine.GetGUIObjectByName(prefix+"GenericName");
 		root.caption = selectedTemplate.name.generic;

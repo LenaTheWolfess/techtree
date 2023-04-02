@@ -110,7 +110,7 @@ class ReqSection extends TechtreeUtils
 		return {"row" : row, "spasing": spasing};
 	}
 	predrawReq(page, res, selectedTech, civCode)
-	{
+	{		
 		const initIconSize = this.getInitIconSize();
 		const rowSize = initIconSize.top - initIconSize.bottom;
 		

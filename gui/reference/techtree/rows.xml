@@ -3,6 +3,7 @@
 	<include file="gui/reference/techtree/sSection.xml"/>
 	<include file="gui/reference/techtree/pSection.xml"/>
 	<include file="gui/reference/techtree/structRow.xml"/>
-	<include file="gui/reference/techtree/startRow.xml"/>
+	<!--<include file="gui/reference/techtree/startRow.xml"/>-->
 	<include file="gui/reference/techtree/tSection.xml"/>
+	<include file="gui/reference/techtree/techList.xml"/>
 </object>
